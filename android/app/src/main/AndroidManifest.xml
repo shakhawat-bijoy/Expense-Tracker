@@ -3,9 +3,9 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
 
     <application
-        android:label="Monthly Expenses Tracker"
+        android:label="Expense Tracker"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher"
+        android:icon="@drawable/expense_tracker_logo"
         android:usesCleartextTraffic="false">
         <activity
             android:name=".MainActivity"

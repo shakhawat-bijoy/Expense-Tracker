@@ -1,5 +1,5 @@
 name: expense_shift_tracker
-description: A modern daily expense, work shifts and budget tracking app.
+description: Expense Tracker for daily spending, earnings, bills and budgets.
 publish_to: "none"
 version: 2.0.0+1
 
