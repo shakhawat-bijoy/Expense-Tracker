@@ -19,23 +19,46 @@ class _BillsScreenState extends State<BillsScreen> {
 
   IconData _getBillIcon(String name) {
     final lower = name.toLowerCase();
-    if (lower.contains("rent") || lower.contains("house") || lower.contains("flat") || lower.contains("apartment")) {
+    if (lower.contains("rent") ||
+        lower.contains("house") ||
+        lower.contains("flat") ||
+        lower.contains("apartment")) {
       return Icons.home_rounded;
-    } else if (lower.contains("wifi") || lower.contains("internet") || lower.contains("broadband")) {
+    } else if (lower.contains("wifi") ||
+        lower.contains("internet") ||
+        lower.contains("broadband")) {
       return Icons.wifi_rounded;
-    } else if (lower.contains("electric") || lower.contains("power") || lower.contains("strom") || lower.contains("energy")) {
+    } else if (lower.contains("electric") ||
+        lower.contains("power") ||
+        lower.contains("strom") ||
+        lower.contains("energy")) {
       return Icons.bolt_rounded;
     } else if (lower.contains("water") || lower.contains("wasser")) {
       return Icons.water_drop_rounded;
-    } else if (lower.contains("phone") || lower.contains("mobile") || lower.contains("telekom") || lower.contains("vodafone")) {
+    } else if (lower.contains("phone") ||
+        lower.contains("mobile") ||
+        lower.contains("telekom") ||
+        lower.contains("vodafone")) {
       return Icons.phone_android_rounded;
-    } else if (lower.contains("gym") || lower.contains("fitness") || lower.contains("sport")) {
+    } else if (lower.contains("gym") ||
+        lower.contains("fitness") ||
+        lower.contains("sport")) {
       return Icons.fitness_center_rounded;
-    } else if (lower.contains("car") || lower.contains("auto") || lower.contains("insurance") || lower.contains("versic")) {
+    } else if (lower.contains("car") ||
+        lower.contains("auto") ||
+        lower.contains("insurance") ||
+        lower.contains("versic")) {
       return Icons.directions_car_rounded;
-    } else if (lower.contains("netflix") || lower.contains("spotify") || lower.contains("sub") || lower.contains("disney") || lower.contains("prime") || lower.contains("apple")) {
+    } else if (lower.contains("netflix") ||
+        lower.contains("spotify") ||
+        lower.contains("sub") ||
+        lower.contains("disney") ||
+        lower.contains("prime") ||
+        lower.contains("apple")) {
       return Icons.subscriptions_rounded;
-    } else if (lower.contains("loan") || lower.contains("kredit") || lower.contains("bank")) {
+    } else if (lower.contains("loan") ||
+        lower.contains("kredit") ||
+        lower.contains("bank")) {
       return Icons.account_balance_rounded;
     }
     return Icons.receipt_long_rounded;
@@ -57,7 +80,9 @@ class _BillsScreenState extends State<BillsScreen> {
       return const Color(0xFF10B981);
     } else if (lower.contains("car") || lower.contains("insurance")) {
       return const Color(0xFFEC4899);
-    } else if (lower.contains("netflix") || lower.contains("spotify") || lower.contains("sub")) {
+    } else if (lower.contains("netflix") ||
+        lower.contains("spotify") ||
+        lower.contains("sub")) {
       return const Color(0xFFEF4444);
     }
     return const Color(0xFF8B5CF6);
@@ -89,7 +114,8 @@ class _BillsScreenState extends State<BillsScreen> {
     final pendingBills = bills.where((b) => b.status != "Paid").toList();
     final paidAmount = paidBills.fold(0.0, (acc, b) => acc + b.amount);
     final pendingAmount = pendingBills.fold(0.0, (acc, b) => acc + b.amount);
-    final progress = totalAmount > 0 ? (paidAmount / totalAmount).clamp(0.0, 1.0) : 0.0;
+    final progress =
+        totalAmount > 0 ? (paidAmount / totalAmount).clamp(0.0, 1.0) : 0.0;
 
     return Scaffold(
       body: RefreshIndicator(
@@ -204,14 +230,18 @@ class _BillsScreenState extends State<BillsScreen> {
                       ),
                     ],
                   ),
-                ).animate().fadeIn(duration: 350.ms).slideY(begin: 0.08, end: 0),
+                )
+                    .animate()
+                    .fadeIn(duration: 350.ms)
+                    .slideY(begin: 0.08, end: 0),
               ),
             ),
 
             // ─── Search and Filter Chips ──────────────────────────────────
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: Column(
                   children: [
                     TextField(
@@ -222,11 +252,13 @@ class _BillsScreenState extends State<BillsScreen> {
                         suffixIcon: _searchQuery.isNotEmpty
                             ? IconButton(
                                 icon: const Icon(Icons.clear_rounded, size: 18),
-                                onPressed: () => setState(() => _searchQuery = ""),
+                                onPressed: () =>
+                                    setState(() => _searchQuery = ""),
                               )
                             : null,
                         isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                        contentPadding:
+                            const EdgeInsets.symmetric(vertical: 12),
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -242,7 +274,8 @@ class _BillsScreenState extends State<BillsScreen> {
                           label: "Pending (${pendingBills.length})",
                           selected: _filterStatus == "Pending",
                           badgeColor: const Color(0xFFFBBF24),
-                          onTap: () => setState(() => _filterStatus = "Pending"),
+                          onTap: () =>
+                              setState(() => _filterStatus = "Pending"),
                         ),
                         const SizedBox(width: 8),
                         _FilterChip(
@@ -300,7 +333,8 @@ class _BillsScreenState extends State<BillsScreen> {
                           ElevatedButton.icon(
                             icon: const Icon(Icons.add_rounded),
                             label: const Text("Add Your First Bill"),
-                            onPressed: () => _showAddBillModal(context, provider),
+                            onPressed: () =>
+                                _showAddBillModal(context, provider),
                           ),
                         ],
                       ],
@@ -351,7 +385,8 @@ class _BillsScreenState extends State<BillsScreen> {
                           margin: const EdgeInsets.only(bottom: 10),
                           child: InkWell(
                             borderRadius: BorderRadius.circular(16),
-                            onTap: () => provider.toggleFixedBillStatus(bill.id),
+                            onTap: () =>
+                                provider.toggleFixedBillStatus(bill.id),
                             child: Padding(
                               padding: const EdgeInsets.all(14),
                               child: Row(
@@ -365,14 +400,16 @@ class _BillsScreenState extends State<BillsScreen> {
                                           alpha: isDark ? 0.2 : 0.12),
                                       borderRadius: BorderRadius.circular(14),
                                     ),
-                                    child: Icon(icon, color: iconColor, size: 24),
+                                    child:
+                                        Icon(icon, color: iconColor, size: 24),
                                   ),
                                   const SizedBox(width: 14),
 
                                   // Name and Month
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           bill.name,
@@ -435,7 +472,8 @@ class _BillsScreenState extends State<BillsScreen> {
                                             .toggleFixedBillStatus(bill.id),
                                         borderRadius: BorderRadius.circular(12),
                                         child: AnimatedContainer(
-                                          duration: const Duration(milliseconds: 200),
+                                          duration:
+                                              const Duration(milliseconds: 200),
                                           padding: const EdgeInsets.symmetric(
                                               horizontal: 8, vertical: 3),
                                           decoration: BoxDecoration(
@@ -461,7 +499,8 @@ class _BillsScreenState extends State<BillsScreen> {
                                               Icon(
                                                 isPaid
                                                     ? Icons.check_circle_rounded
-                                                    : Icons.radio_button_unchecked_rounded,
+                                                    : Icons
+                                                        .radio_button_unchecked_rounded,
                                                 size: 13,
                                                 color: isPaid
                                                     ? const Color(0xFF10B981)
@@ -512,8 +551,7 @@ class _BillsScreenState extends State<BillsScreen> {
                                         value: "edit",
                                         child: Row(
                                           children: [
-                                            Icon(Icons.edit_outlined,
-                                                size: 18),
+                                            Icon(Icons.edit_outlined, size: 18),
                                             SizedBox(width: 8),
                                             Text("Edit Bill"),
                                           ],
@@ -526,7 +564,8 @@ class _BillsScreenState extends State<BillsScreen> {
                                             Icon(
                                               isPaid
                                                   ? Icons.undo_rounded
-                                                  : Icons.check_circle_outline_rounded,
+                                                  : Icons
+                                                      .check_circle_outline_rounded,
                                               size: 18,
                                             ),
                                             const SizedBox(width: 8),
@@ -548,7 +587,8 @@ class _BillsScreenState extends State<BillsScreen> {
                                             SizedBox(width: 8),
                                             Text(
                                               "Delete",
-                                              style: TextStyle(color: Colors.red),
+                                              style:
+                                                  TextStyle(color: Colors.red),
                                             ),
                                           ],
                                         ),
@@ -560,7 +600,9 @@ class _BillsScreenState extends State<BillsScreen> {
                             ),
                           ),
                         ),
-                      ).animate().fadeIn(duration: 250.ms, delay: (index * 40).ms);
+                      )
+                          .animate()
+                          .fadeIn(duration: 250.ms, delay: (index * 40).ms);
                     },
                     childCount: filteredBills.length,
                   ),
@@ -608,7 +650,7 @@ class _BillsScreenState extends State<BillsScreen> {
       text: isEditing ? bill.amount.toString() : "",
     );
     final monthCtrl = TextEditingController(
-      text: isEditing ? bill.month : provider.formattedSelectedMonth,
+      text: isEditing ? bill.month : provider.selectedMonth,
     );
     String status = isEditing ? bill.status : "Pending";
     final formKey = GlobalKey<FormState>();
@@ -648,9 +690,9 @@ class _BillsScreenState extends State<BillsScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        "Add Fixed Bill",
-                        style: TextStyle(
+                      Text(
+                        isEditing ? "Edit Fixed Bill" : "Add Fixed Bill",
+                        style: const TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
                         ),
@@ -682,7 +724,8 @@ class _BillsScreenState extends State<BillsScreen> {
                       itemBuilder: (ctx, i) {
                         final preset = commonPresets[i];
                         return ActionChip(
-                          label: Text(preset, style: const TextStyle(fontSize: 12)),
+                          label: Text(preset,
+                              style: const TextStyle(fontSize: 12)),
                           onPressed: () {
                             setModalState(() {
                               nameCtrl.text = preset;
@@ -702,8 +745,9 @@ class _BillsScreenState extends State<BillsScreen> {
                       hintText: "e.g., Studio Rent, Wifi",
                       prefixIcon: Icon(Icons.receipt_long_rounded),
                     ),
-                    validator: (v) =>
-                        (v == null || v.trim().isEmpty) ? "Bill name is required" : null,
+                    validator: (v) => (v == null || v.trim().isEmpty)
+                        ? "Bill name is required"
+                        : null,
                   ),
                   const SizedBox(height: 14),
 
@@ -718,9 +762,13 @@ class _BillsScreenState extends State<BillsScreen> {
                       prefixIcon: Icon(Icons.euro_rounded),
                     ),
                     validator: (v) {
-                      if (v == null || v.trim().isEmpty) return "Amount is required";
+                      if (v == null || v.trim().isEmpty) {
+                        return "Amount is required";
+                      }
                       final parsed = double.tryParse(v.replaceAll(",", "."));
-                      if (parsed == null || parsed <= 0) return "Enter a valid positive number";
+                      if (parsed == null || parsed <= 0) {
+                        return "Enter a valid positive number";
+                      }
                       return null;
                     },
                   ),
@@ -781,7 +829,8 @@ class _BillsScreenState extends State<BillsScreen> {
                       icon: const Icon(Icons.save_rounded),
                       label: Text(
                         isEditing ? "Update Bill" : "Save Bill",
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold),
                       ),
                       onPressed: () async {
                         if (formKey.currentState?.validate() ?? false) {

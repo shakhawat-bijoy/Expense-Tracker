@@ -1,4 +1,5 @@
 import "package:flutter/material.dart";
+import "package:flutter/services.dart";
 import "package:google_fonts/google_fonts.dart";
 import "package:provider/provider.dart";
 import "providers/app_provider.dart";
@@ -12,6 +13,12 @@ import "services/mongodb_service_old.dart";
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    statusBarIconBrightness: Brightness.light,
+    systemNavigationBarColor: Colors.black,
+    systemNavigationBarIconBrightness: Brightness.light,
+  ));
   await MongoService.loadBaseUrl();
   await MongoService.connect();
 
