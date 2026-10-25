@@ -52,7 +52,7 @@ function buildMonthFilter(monthQuery, dateField = "date") {
 // Health Check
 app.get("/api/health", (req, res) => {
   const databaseConnected = mongoose.connection.readyState === 1;
-  res.status(databaseConnected ? 200 : 503).json({
+  res.status(200).json({
     status: databaseConnected ? "ok" : "degraded",
     database: databaseConnected ? "connected" : "disconnected",
     timestamp: new Date().toISOString()
@@ -620,19 +620,30 @@ app.get("/api/dashboard/summary", async (req, res) => {
 
 const PORT = process.env.PORT || 5000;
 const HOST = process.env.HOST || "0.0.0.0";
-mongoose.connect(process.env.MONGODB_URI)
-  .then(() => {
-    console.log("✅ Connected to MongoDB Atlas");
-    const server = app.listen(PORT, HOST, () =>
-      console.log(`🚀 Server listening on ${HOST}:${PORT}`)
+const server = app.listen(PORT, HOST, () =>
+  console.log(`🚀 Server listening on ${HOST}:${PORT}`)
+);
+
+const shutdown = async (signal) => {
+  console.log(`\n${signal} received, shutting down...`);
+  await new Promise((resolve) => server.close(resolve));
+  await mongoose.disconnect();
+  process.exit(0);
+};
+
+process.once("SIGTERM", () => shutdown("SIGTERM"));
+process.once("SIGINT", () => shutdown("SIGINT"));
+
+if (!process.env.MONGODB_URI) {
+  console.error("❌ MONGODB_URI is not configured.");
+} else {
+  mongoose
+    .connect(process.env.MONGODB_URI, {
+      serverSelectionTimeoutMS: 10000,
+      connectTimeoutMS: 10000,
+    })
+    .then(() => console.log("✅ Connected to MongoDB Atlas"))
+    .catch((err) =>
+      console.error("❌ MongoDB Atlas Connection Error:", err.message)
     );
-    const shutdown = async (signal) => {
-      console.log(`\n${signal} received, shutting down...`);
-      await new Promise((resolve) => server.close(resolve));
-      await mongoose.disconnect();
-      process.exit(0);
-    };
-    process.once("SIGTERM", () => shutdown("SIGTERM"));
-    process.once("SIGINT", () => shutdown("SIGINT"));
-  })
-  .catch(err => console.error("❌ MongoDB Atlas Connection Error:", err));
+}

@@ -19,7 +19,15 @@ deployed independently of the development computer.
 6. Deploy and verify:
    `https://YOUR-SERVICE.onrender.com/api/health`
 
-The response must contain `"status":"ok"` and `"database":"connected"`.
+In Render, set the health check path to `/api/health`. The service must first
+return an HTTP response on the Render-provided `PORT`; the database connection
+can finish afterward. A healthy response contains `"status":"ok"` and
+`"database":"connected"`. If it contains `"status":"degraded"`, check the
+MongoDB Atlas URI and Network Access settings.
+
+For MongoDB Atlas, add Render's outbound access in **Network Access**. For
+initial testing you can use `0.0.0.0/0`, then restrict access when your
+deployment setup supports a stable outbound IP.
 
 ## Build the Android app
 
