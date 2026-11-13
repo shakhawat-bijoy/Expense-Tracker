@@ -195,12 +195,15 @@ class MongoService {
 
   // ─── Custom Dynamic Dropdown Options ─────────────────────────────────────
 
-  static Future<List<String>> getCustomOptions(String type) async {
+  static Future<List<CustomOption>> getCustomOptions(String type) async {
     try {
-      final res = await http.get(Uri.parse("$baseUrl/custom-options?type=$type"));
+      final res =
+          await http.get(Uri.parse("$baseUrl/custom-options?type=$type"));
       if (res.statusCode == 200) {
         final List list = jsonDecode(res.body);
-        return list.map((e) => e["name"].toString()).toList();
+        return list
+            .map((e) => CustomOption.fromJson(Map<String, dynamic>.from(e)))
+            .toList();
       }
     } catch (e) {
       debugPrint("❌ Error fetching options for $type: $e");
@@ -208,12 +211,17 @@ class MongoService {
     return [];
   }
 
-  static Future<void> addCustomOption(String type, String name) async {
+  static Future<void> addCustomOption(String type, String name,
+      {int? colorValue}) async {
     try {
       await http.post(
         Uri.parse("$baseUrl/custom-options"),
         headers: {"Content-Type": "application/json"},
-        body: jsonEncode({"type": type, "name": name}),
+        body: jsonEncode({
+          "type": type,
+          "name": name,
+          if (colorValue != null) "colorValue": colorValue,
+        }),
       );
     } catch (e) {
       debugPrint("❌ Error adding custom option: $e");
@@ -238,7 +246,8 @@ class MongoService {
     return [];
   }
 
-  static Future<void> insertExpense(Expense expense, {bool deductFromAccount = false}) async {
+  static Future<void> insertExpense(Expense expense,
+      {bool deductFromAccount = false}) async {
     try {
       final data = expense.toJson();
       if (deductFromAccount) {
@@ -254,12 +263,15 @@ class MongoService {
     }
   }
 
-  static Future<void> updateExpense(Expense expense) async {
+  static Future<void> updateExpense(Expense expense,
+      {bool updateAccountBalance = true}) async {
     try {
+      final data = expense.toJson();
+      data["updateAccountBalance"] = updateAccountBalance;
       await http.put(
         Uri.parse("$baseUrl/expenses/${expense.id}"),
         headers: {"Content-Type": "application/json"},
-        body: jsonEncode(expense.toJson()),
+        body: jsonEncode(data),
       );
     } catch (e) {
       debugPrint("❌ Error updating expense: $e");

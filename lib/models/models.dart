@@ -7,6 +7,7 @@ class Expense {
   final DateTime date;
   final String month;
   final String notes;
+  final String? accountDeductedFrom; // "pocket" or "bank"
 
   Expense({
     required this.id,
@@ -17,6 +18,7 @@ class Expense {
     required this.date,
     String? month,
     this.notes = "",
+    this.accountDeductedFrom,
   }) : month = month ?? "${date.year}-${date.month.toString().padLeft(2, '0')}";
 
   factory Expense.fromJson(Map<String, dynamic> json) {
@@ -33,6 +35,7 @@ class Expense {
       month: json["month"] ??
           "${parsedDate.year}-${parsedDate.month.toString().padLeft(2, '0')}",
       notes: json["notes"] ?? "",
+      accountDeductedFrom: json["accountDeductedFrom"],
     );
   }
 
@@ -44,6 +47,8 @@ class Expense {
         "date": date.toIso8601String(),
         "month": month,
         "notes": notes,
+        if (accountDeductedFrom != null)
+          "accountDeductedFrom": accountDeductedFrom,
       };
 
   Expense copyWith({
@@ -55,6 +60,7 @@ class Expense {
     DateTime? date,
     String? month,
     String? notes,
+    String? accountDeductedFrom,
   }) =>
       Expense(
         id: id ?? this.id,
@@ -65,6 +71,7 @@ class Expense {
         date: date ?? this.date,
         month: month ?? this.month,
         notes: notes ?? this.notes,
+        accountDeductedFrom: accountDeductedFrom ?? this.accountDeductedFrom,
       );
 }
 
@@ -75,6 +82,10 @@ class EarningShift {
   final String category;
   final String timeline;
   final double hours;
+  final int minutes;
+  final int? startMinutes;
+  final int? finishMinutes;
+  final int breakMinutes;
   final double grossAmount;
   final double rentDeduction;
   final double taxPercent;
@@ -90,9 +101,13 @@ class EarningShift {
     required this.category,
     required this.timeline,
     required this.hours,
+    this.minutes = 0,
+    this.startMinutes,
+    this.finishMinutes,
+    this.breakMinutes = 0,
     required this.grossAmount,
-    this.rentDeduction = 8.33,
-    this.taxPercent = 8.0,
+    this.rentDeduction = 0.0,
+    this.taxPercent = 0.0,
     required this.netAmount,
     this.paymentStatus = "Pending",
     this.payoutBatch = "General",
@@ -111,9 +126,13 @@ class EarningShift {
       category: json["category"] ?? "Delivery",
       timeline: json["timeline"] ?? "",
       hours: (json["hours"] as num?)?.toDouble() ?? 0.0,
+      minutes: (json["minutes"] as num?)?.toInt() ?? 0,
+      startMinutes: (json["startMinutes"] as num?)?.toInt(),
+      finishMinutes: (json["finishMinutes"] as num?)?.toInt(),
+      breakMinutes: (json["breakMinutes"] as num?)?.toInt() ?? 0,
       grossAmount: (json["grossAmount"] as num?)?.toDouble() ?? 0.0,
-      rentDeduction: (json["rentDeduction"] as num?)?.toDouble() ?? 8.33,
-      taxPercent: (json["taxPercent"] as num?)?.toDouble() ?? 8.0,
+      rentDeduction: (json["rentDeduction"] as num?)?.toDouble() ?? 0.0,
+      taxPercent: (json["taxPercent"] as num?)?.toDouble() ?? 0.0,
       netAmount: (json["netAmount"] as num?)?.toDouble() ?? 0.0,
       paymentStatus: json["paymentStatus"] ?? "Pending",
       payoutBatch: json["payoutBatch"] ?? "General",
@@ -127,6 +146,10 @@ class EarningShift {
         "category": category,
         "timeline": timeline,
         "hours": hours,
+        "minutes": minutes,
+        if (startMinutes != null) "startMinutes": startMinutes,
+        if (finishMinutes != null) "finishMinutes": finishMinutes,
+        "breakMinutes": breakMinutes,
         "grossAmount": grossAmount,
         "rentDeduction": rentDeduction,
         "taxPercent": taxPercent,
@@ -143,6 +166,10 @@ class EarningShift {
     String? category,
     String? timeline,
     double? hours,
+    int? minutes,
+    int? startMinutes,
+    int? finishMinutes,
+    int? breakMinutes,
     double? grossAmount,
     double? rentDeduction,
     double? taxPercent,
@@ -158,6 +185,10 @@ class EarningShift {
         category: category ?? this.category,
         timeline: timeline ?? this.timeline,
         hours: hours ?? this.hours,
+        minutes: minutes ?? this.minutes,
+        startMinutes: startMinutes ?? this.startMinutes,
+        finishMinutes: finishMinutes ?? this.finishMinutes,
+        breakMinutes: breakMinutes ?? this.breakMinutes,
         grossAmount: grossAmount ?? this.grossAmount,
         rentDeduction: rentDeduction ?? this.rentDeduction,
         taxPercent: taxPercent ?? this.taxPercent,
@@ -309,6 +340,7 @@ class DebtItem {
   final String status; // "Pending", "Partial", "Settled"
   final String notes;
   final String month;
+  final String direction; // "owed" or "owed_to_me"
 
   DebtItem({
     required this.id,
@@ -321,6 +353,7 @@ class DebtItem {
     this.status = "Pending",
     this.notes = "",
     this.month = "",
+    this.direction = "owed",
   });
 
   double get remainingAmount =>
@@ -349,6 +382,7 @@ class DebtItem {
       status: json["status"] ?? "Pending",
       notes: json["notes"] ?? "",
       month: json["month"] ?? "",
+      direction: json["direction"] ?? "owed",
     );
   }
 
@@ -362,6 +396,7 @@ class DebtItem {
         "status": status,
         "notes": notes,
         "month": month,
+        "direction": direction,
       };
 
   DebtItem copyWith({
@@ -375,6 +410,7 @@ class DebtItem {
     String? status,
     String? notes,
     String? month,
+    String? direction,
   }) =>
       DebtItem(
         id: id ?? this.id,
@@ -387,6 +423,7 @@ class DebtItem {
         status: status ?? this.status,
         notes: notes ?? this.notes,
         month: month ?? this.month,
+        direction: direction ?? this.direction,
       );
 }
 
@@ -394,16 +431,27 @@ class CustomOption {
   final String id;
   final String type;
   final String name;
+  final int? colorValue;
 
-  CustomOption({required this.id, required this.type, required this.name});
+  CustomOption({
+    required this.id,
+    required this.type,
+    required this.name,
+    this.colorValue,
+  });
 
   factory CustomOption.fromJson(Map<String, dynamic> json) => CustomOption(
         id: json["_id"] ?? "",
         type: json["type"] ?? "",
         name: json["name"] ?? "",
+        colorValue: (json["colorValue"] as num?)?.toInt(),
       );
 
-  Map<String, dynamic> toJson() => {"type": type, "name": name};
+  Map<String, dynamic> toJson() => {
+        "type": type,
+        "name": name,
+        if (colorValue != null) "colorValue": colorValue,
+      };
 }
 
 class DashboardSummary {

@@ -46,6 +46,15 @@ function buildMonthFilter(monthQuery, dateField = "date") {
       ]
     };
   }
+
+  function calculateWorkedMinutes(startMinutes, finishMinutes, breakMinutes = 0) {
+    if (!Number.isFinite(startMinutes) || !Number.isFinite(finishMinutes)) {
+      return null;
+    }
+    let duration = finishMinutes - startMinutes;
+    if (duration <= 0) duration += 24 * 60;
+    return Math.max(0, duration - Math.max(0, breakMinutes));
+  }
   return { month: monthQuery };
 }
 
@@ -176,14 +185,17 @@ app.patch("/api/debts/:id/pay", async (req, res) => {
     debt.paidAmount = Number(((debt.paidAmount || 0) + Number(paymentAmount)).toFixed(2));
     await debt.save();
 
-    // Optionally deduct from Pocket or Bank
+    // Repayments reduce money owed to the user; money received from a borrower
+    // increases the selected account.
     if (deductFrom === "pocket" || deductFrom === "bank") {
       let acc = await AccountBalance.findOne();
       if (acc) {
+        const amount = Number(paymentAmount);
+        const delta = debt.direction === "owed_to_me" ? amount : -amount;
         if (deductFrom === "pocket") {
-          acc.pocket = Math.max(0, Number((acc.pocket - paymentAmount).toFixed(2)));
+          acc.pocket = Math.max(0, Number((acc.pocket + delta).toFixed(2)));
         } else {
-          acc.bank = Math.max(0, Number((acc.bank - paymentAmount).toFixed(2)));
+          acc.bank = Math.max(0, Number((acc.bank + delta).toFixed(2)));
         }
         await acc.save();
       }
@@ -217,12 +229,12 @@ app.get("/api/custom-options", async (req, res) => {
 
 app.post("/api/custom-options", async (req, res) => {
   try {
-    const { type, name } = req.body;
+    const { type, name, colorValue } = req.body;
     if (!type || !name) return res.status(400).json({ error: "Type and name required" });
 
     let opt = await CustomOption.findOne({ type, name: { $regex: new RegExp(`^${name.trim()}$`, "i") } });
     if (!opt) {
-      opt = await CustomOption.create({ type, name: name.trim() });
+      opt = await CustomOption.create({ type, name: name.trim(), colorValue });
     }
     res.status(201).json(opt);
   } catch (err) {
@@ -254,10 +266,17 @@ app.post("/api/expenses", async (req, res) => {
   try {
     const date = req.body.date ? new Date(req.body.date) : new Date();
     const month = req.body.month || getMonthString(date);
+    const paymentMethod = String(req.body.paymentMethod || "").toLowerCase();
+    const accountDeductedFrom = req.body.deductFromAccount
+      ? (paymentMethod.includes("bank") || paymentMethod.includes("debit")
+          ? "bank"
+          : "pocket")
+      : null;
     const expense = new Expense({
       ...req.body,
       date,
-      month
+      month,
+      accountDeductedFrom
     });
     await expense.save();
 
@@ -265,7 +284,7 @@ app.post("/api/expenses", async (req, res) => {
     if (req.body.deductFromAccount) {
       let acc = await AccountBalance.findOne();
       if (!acc) acc = await AccountBalance.create({ pocket: 0, bank: 0 });
-      if (req.body.paymentMethod === "Bank Account" || req.body.deductFromAccount === "bank") {
+      if (accountDeductedFrom === "bank") {
         acc.bank = Math.max(0, Number((acc.bank - expense.price).toFixed(2)));
       } else {
         acc.pocket = Math.max(0, Number((acc.pocket - expense.price).toFixed(2)));
@@ -281,19 +300,48 @@ app.post("/api/expenses", async (req, res) => {
 
 app.put("/api/expenses/:id", async (req, res) => {
   try {
-    const date = req.body.date ? new Date(req.body.date) : undefined;
-    const month = req.body.month || (date ? getMonthString(date) : undefined);
-    
-    const updateData = { ...req.body };
+    const existing = await Expense.findById(req.params.id);
+    if (!existing) return res.status(404).json({ error: "Expense not found" });
+
+    const { updateAccountBalance = false, ...expenseData } = req.body;
+    const date = expenseData.date ? new Date(expenseData.date) : undefined;
+    const month = expenseData.month ||
+      (date ? getMonthString(date) : undefined);
+    const updateData = { ...expenseData };
     if (date) updateData.date = date;
     if (month) updateData.month = month;
 
-    const updated = await Expense.findByIdAndUpdate(
-      req.params.id,
-      updateData,
-      { new: true, runValidators: true }
-    );
-    if (!updated) return res.status(404).json({ error: "Expense not found" });
+    if (updateAccountBalance) {
+      let acc = await AccountBalance.findOne();
+      if (!acc) acc = await AccountBalance.create({ pocket: 0, bank: 0 });
+
+      const oldAccount = existing.accountDeductedFrom ||
+        (String(existing.paymentMethod || "").toLowerCase().includes("bank") ||
+        String(existing.paymentMethod || "").toLowerCase().includes("debit")
+          ? "bank"
+          : "pocket");
+      const newPaymentMethod =
+        String(expenseData.paymentMethod || existing.paymentMethod || "")
+          .toLowerCase();
+      const newAccount = newPaymentMethod.includes("bank") ||
+          newPaymentMethod.includes("debit")
+        ? "bank"
+        : "pocket";
+
+      acc[oldAccount] = Number((acc[oldAccount] + existing.price).toFixed(2));
+      acc[newAccount] = Math.max(
+        0,
+        Number((acc[newAccount] - Number(expenseData.price ?? existing.price))
+            .toFixed(2)),
+      );
+      await acc.save();
+      updateData.accountDeductedFrom = newAccount;
+    }
+
+    const updated = await Expense.findByIdAndUpdate(req.params.id, updateData, {
+      new: true,
+      runValidators: true,
+    });
     res.json(updated);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -324,7 +372,16 @@ app.post("/api/shifts", async (req, res) => {
   try {
     const date = req.body.date ? new Date(req.body.date) : new Date();
     const month = req.body.month || getMonthString(date);
-    const { grossAmount = 0, rentDeduction = 8.33, taxPercent = 8.0 } = req.body;
+    const {
+      grossAmount = 0,
+      rentDeduction = 0,
+      taxPercent = 0,
+      startMinutes,
+      finishMinutes,
+      breakMinutes = 0
+    } = req.body;
+    const workedMinutes =
+      calculateWorkedMinutes(startMinutes, finishMinutes, breakMinutes);
     const base = Math.max(0, grossAmount - rentDeduction);
     const net = base * (1 - taxPercent / 100);
 
@@ -335,6 +392,12 @@ app.post("/api/shifts", async (req, res) => {
       grossAmount,
       rentDeduction,
       taxPercent,
+      ...(workedMinutes != null
+        ? {
+            hours: Math.floor(workedMinutes / 60),
+            minutes: workedMinutes % 60
+          }
+        : {}),
       netAmount: Number(net.toFixed(2))
     });
     await shift.save();
@@ -349,8 +412,8 @@ app.put("/api/shifts/:id", async (req, res) => {
     const date = req.body.date ? new Date(req.body.date) : undefined;
     const month = req.body.month || (date ? getMonthString(date) : undefined);
     const grossAmount = req.body.grossAmount !== undefined ? req.body.grossAmount : undefined;
-    const rentDeduction = req.body.rentDeduction !== undefined ? req.body.rentDeduction : 8.33;
-    const taxPercent = req.body.taxPercent !== undefined ? req.body.taxPercent : 8.0;
+    const rentDeduction = req.body.rentDeduction !== undefined ? req.body.rentDeduction : 0;
+    const taxPercent = req.body.taxPercent !== undefined ? req.body.taxPercent : 0;
 
     let netAmount = req.body.netAmount;
     if (grossAmount !== undefined && netAmount === undefined) {
@@ -361,6 +424,15 @@ app.put("/api/shifts/:id", async (req, res) => {
     const updateData = { ...req.body };
     if (date) updateData.date = date;
     if (month) updateData.month = month;
+    const workedMinutes = calculateWorkedMinutes(
+      Number(req.body.startMinutes),
+      Number(req.body.finishMinutes),
+      Number(req.body.breakMinutes || 0)
+    );
+    if (workedMinutes != null) {
+      updateData.hours = Math.floor(workedMinutes / 60);
+      updateData.minutes = workedMinutes % 60;
+    }
     if (netAmount !== undefined) updateData.netAmount = netAmount;
 
     const updated = await EarningShift.findByIdAndUpdate(

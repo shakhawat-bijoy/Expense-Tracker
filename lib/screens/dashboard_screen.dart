@@ -9,6 +9,34 @@ import "../widgets/addable_dropdown.dart";
 import "../widgets/month_navigation_bar.dart";
 import "debts_screen.dart";
 
+TimeOfDay _dashboardTimeFromMinutes(int? minutes, TimeOfDay fallback) {
+  if (minutes == null) return fallback;
+  return TimeOfDay(hour: (minutes ~/ 60) % 24, minute: minutes % 60);
+}
+
+TimeOfDay _dashboardParseTimeline(
+    String timeline, TimeOfDay fallback, bool end) {
+  final parts = timeline.split("-");
+  if (parts.length != 2) return fallback;
+  final match = RegExp(r"^(\d{1,2}):(\d{2})(?:\s*([AaPp][Mm]))?$")
+      .firstMatch(parts[end ? 1 : 0].trim());
+  if (match == null) return fallback;
+  var hour = int.parse(match.group(1)!);
+  final minute = int.parse(match.group(2)!);
+  final meridiem = match.group(3)?.toLowerCase();
+  if (meridiem == "pm" && hour != 12) hour += 12;
+  if (meridiem == "am" && hour == 12) hour = 0;
+  return hour >= 0 && hour < 24 && minute < 60
+      ? TimeOfDay(hour: hour, minute: minute)
+      : fallback;
+}
+
+int _dashboardTimeMinutes(TimeOfDay time) => time.hour * 60 + time.minute;
+
+String _dashboardFormat12(BuildContext context, TimeOfDay time) =>
+    MaterialLocalizations.of(context)
+        .formatTimeOfDay(time, alwaysUse24HourFormat: false);
+
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
 
@@ -633,6 +661,7 @@ class DashboardScreen extends StatelessWidget {
                   value: category,
                   prefixIcon: Icons.category_outlined,
                   addOptionLabel: "Add Category",
+                  allowColor: true,
                   onChanged: (val) {
                     if (val != null) setModalState(() => category = val);
                   },
@@ -656,7 +685,8 @@ class DashboardScreen extends StatelessWidget {
                         style: TextStyle(
                             fontSize: 13, fontWeight: FontWeight.w600)),
                     subtitle: Text(
-                      paymentMethod.toLowerCase().contains("bank")
+                      paymentMethod.toLowerCase().contains("bank") ||
+                              paymentMethod.toLowerCase().contains("debit")
                           ? "Deducts from Bank Account"
                           : "Deducts from Pocket Cash",
                       style: const TextStyle(fontSize: 11),
@@ -765,14 +795,26 @@ class DashboardScreen extends StatelessWidget {
 
     final grossCtrl = TextEditingController(
         text: isEditing ? shift.grossAmount.toString() : "");
-    final hoursCtrl =
-        TextEditingController(text: isEditing ? shift.hours.toString() : "4.0");
-    final timelineCtrl = TextEditingController(
-        text: isEditing ? shift.timeline : "07:00 - 11:00");
+    const defaultStart = TimeOfDay(hour: 7, minute: 0);
+    const defaultFinish = TimeOfDay(hour: 11, minute: 0);
+    TimeOfDay startTime = _dashboardTimeFromMinutes(
+      isEditing ? shift.startMinutes : null,
+      isEditing
+          ? _dashboardParseTimeline(shift.timeline, defaultStart, false)
+          : defaultStart,
+    );
+    TimeOfDay finishTime = _dashboardTimeFromMinutes(
+      isEditing ? shift.finishMinutes : null,
+      isEditing
+          ? _dashboardParseTimeline(shift.timeline, defaultFinish, true)
+          : defaultFinish,
+    );
+    final breakCtrl = TextEditingController(
+        text: isEditing ? shift.breakMinutes.toString() : "0");
     final rentCtrl = TextEditingController(
-        text: isEditing ? shift.rentDeduction.toString() : "8.33");
+        text: isEditing ? shift.rentDeduction.toString() : "0");
     final taxCtrl = TextEditingController(
-        text: isEditing ? shift.taxPercent.toString() : "8.0");
+        text: isEditing ? shift.taxPercent.toString() : "0");
     final batchCtrl =
         TextEditingController(text: isEditing ? shift.payoutBatch : "General");
 
@@ -780,6 +822,17 @@ class DashboardScreen extends StatelessWidget {
     String status = isEditing ? shift.paymentStatus : "Pending";
     String depositTo = isEditing ? shift.depositTo : "Bank Account";
     DateTime selectedDate = isEditing ? shift.date : DateTime.now();
+
+    int shiftDurationMinutes() {
+      var duration =
+          _dashboardTimeMinutes(finishTime) - _dashboardTimeMinutes(startTime);
+      if (duration <= 0) duration += 24 * 60;
+      return duration;
+    }
+
+    int workedMinutes() =>
+        (shiftDurationMinutes() - (int.tryParse(breakCtrl.text.trim()) ?? 0))
+            .clamp(0, 24 * 60);
 
     showModalBottomSheet(
       context: context,
@@ -841,37 +894,97 @@ class DashboardScreen extends StatelessWidget {
                 Row(
                   children: [
                     Expanded(
-                      child: TextField(
-                        controller: grossCtrl,
-                        keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true),
-                        decoration: const InputDecoration(
-                          labelText: "Gross Earned (€) *",
-                          prefixIcon: Icon(Icons.euro_rounded),
+                      child: InkWell(
+                        onTap: () async {
+                          final picked = await showTimePicker(
+                            context: ctx,
+                            initialTime: startTime,
+                            builder: (context, child) => MediaQuery(
+                              data: MediaQuery.of(context)
+                                  .copyWith(alwaysUse24HourFormat: false),
+                              child: child!,
+                            ),
+                          );
+                          if (picked != null) {
+                            setModalState(() => startTime = picked);
+                          }
+                        },
+                        borderRadius: BorderRadius.circular(12),
+                        child: InputDecorator(
+                          decoration: const InputDecoration(
+                            labelText: "Starting time",
+                            prefixIcon: Icon(Icons.login_rounded),
+                          ),
+                          child: Text(_dashboardFormat12(ctx, startTime)),
                         ),
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: TextField(
-                        controller: hoursCtrl,
-                        keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true),
-                        decoration: const InputDecoration(
-                          labelText: "Hours Worked *",
-                          prefixIcon: Icon(Icons.access_time_rounded),
+                      child: InkWell(
+                        onTap: () async {
+                          final picked = await showTimePicker(
+                            context: ctx,
+                            initialTime: finishTime,
+                            builder: (context, child) => MediaQuery(
+                              data: MediaQuery.of(context)
+                                  .copyWith(alwaysUse24HourFormat: false),
+                              child: child!,
+                            ),
+                          );
+                          if (picked != null) {
+                            setModalState(() => finishTime = picked);
+                          }
+                        },
+                        borderRadius: BorderRadius.circular(12),
+                        child: InputDecorator(
+                          decoration: const InputDecoration(
+                            labelText: "Finish time",
+                            prefixIcon: Icon(Icons.logout_rounded),
+                          ),
+                          child: Text(_dashboardFormat12(ctx, finishTime)),
                         ),
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: InputDecorator(
+                        decoration: const InputDecoration(
+                          labelText: "Hours Worked",
+                          prefixIcon: Icon(Icons.access_time_rounded),
+                        ),
+                        child: Text(
+                          "${workedMinutes() ~/ 60}h ${workedMinutes() % 60}m",
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        controller: breakCtrl,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: "Break (minutes)",
+                          prefixIcon: Icon(Icons.free_breakfast_rounded),
+                        ),
+                        onChanged: (_) => setModalState(() {}),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
                 TextField(
-                  controller: timelineCtrl,
+                  controller: grossCtrl,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
                   decoration: const InputDecoration(
-                    labelText: "Timeline",
-                    hintText: "e.g. 08:00 - 14:00",
-                    prefixIcon: Icon(Icons.schedule_rounded),
+                    labelText: "Gross Earned (€) *",
+                    prefixIcon: Icon(Icons.euro_rounded),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -978,9 +1091,21 @@ class DashboardScreen extends StatelessWidget {
                   onPressed: () async {
                     final gross = double.tryParse(
                         grossCtrl.text.replaceAll(",", ".").trim());
-                    final hours = double.tryParse(
-                        hoursCtrl.text.replaceAll(",", ".").trim());
-                    if (gross == null || hours == null) return;
+                    final breakMinutes =
+                        int.tryParse(breakCtrl.text.trim()) ?? 0;
+                    if (gross == null ||
+                        breakMinutes < 0 ||
+                        breakMinutes > shiftDurationMinutes()) {
+                      ScaffoldMessenger.of(ctx).showSnackBar(
+                        const SnackBar(
+                            content:
+                                Text("Break cannot exceed the shift duration")),
+                      );
+                      return;
+                    }
+                    final worked = workedMinutes();
+                    final hours = (worked ~/ 60).toDouble();
+                    final minutes = worked % 60;
 
                     final rent = double.tryParse(
                             rentCtrl.text.replaceAll(",", ".").trim()) ??
@@ -996,7 +1121,12 @@ class DashboardScreen extends StatelessWidget {
                         category: category,
                         grossAmount: gross,
                         hours: hours,
-                        timeline: timelineCtrl.text.trim(),
+                        minutes: minutes,
+                        timeline:
+                            "${_dashboardFormat12(ctx, startTime)} - ${_dashboardFormat12(ctx, finishTime)}",
+                        startMinutes: _dashboardTimeMinutes(startTime),
+                        finishMinutes: _dashboardTimeMinutes(finishTime),
+                        breakMinutes: breakMinutes,
                         rentDeduction: rent,
                         taxPercent: tax,
                         netAmount: double.parse(net.toStringAsFixed(2)),
@@ -1012,7 +1142,12 @@ class DashboardScreen extends StatelessWidget {
                         category: category,
                         grossAmount: gross,
                         hours: hours,
-                        timeline: timelineCtrl.text.trim(),
+                        minutes: minutes,
+                        timeline:
+                            "${_dashboardFormat12(ctx, startTime)} - ${_dashboardFormat12(ctx, finishTime)}",
+                        startMinutes: _dashboardTimeMinutes(startTime),
+                        finishMinutes: _dashboardTimeMinutes(finishTime),
+                        breakMinutes: breakMinutes,
                         rentDeduction: rent,
                         taxPercent: tax,
                         netAmount: double.parse(net.toStringAsFixed(2)),

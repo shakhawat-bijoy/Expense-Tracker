@@ -34,6 +34,7 @@ class AppProvider with ChangeNotifier {
       "Utility",
       "Shopping",
       "Entertainment",
+      "Snacks",
       "Other"
     ],
     "shift_role": [
@@ -68,6 +69,8 @@ class AppProvider with ChangeNotifier {
       "Other"
     ],
   };
+  final Map<String, int> _categoryColors = {};
+  final Map<String, Set<String>> _hiddenDropdownOptions = {};
 
   AppProvider() {
     final now = DateTime.now();
@@ -95,8 +98,12 @@ class AppProvider with ChangeNotifier {
   double get bankBalance => _accounts.bank;
   double get totalLiquidFunds => _accounts.total;
 
-  double get totalDebtOwed => _debts.fold(0.0, (acc, d) => acc + d.amount);
-  double get totalDebtPaid => _debts.fold(0.0, (acc, d) => acc + d.paidAmount);
+  double get totalDebtOwed => _debts
+      .where((d) => d.direction == "owed")
+      .fold(0.0, (acc, d) => acc + d.amount);
+  double get totalDebtPaid => _debts
+      .where((d) => d.direction == "owed")
+      .fold(0.0, (acc, d) => acc + d.paidAmount);
   double get remainingDebtOwed =>
       (totalDebtOwed - totalDebtPaid).clamp(0.0, double.infinity);
   double get debtPayoffProgress => totalDebtOwed > 0
@@ -181,10 +188,66 @@ class AppProvider with ChangeNotifier {
 
   // ─── Dropdown Options Management ─────────────────────────────────────────
   List<String> getDropdownOptions(String type) {
-    return _dropdownOptions[type] ?? [];
+    final hidden = _hiddenDropdownOptions[type] ?? {};
+    final options = (_dropdownOptions[type] ?? [])
+        .where((option) => !hidden.contains(option.toLowerCase()))
+        .toList();
+    if (type == "shift_role") {
+      options.sort((a, b) {
+        final aIsPriority = a.toLowerCase() == "new york sweets";
+        final bIsPriority = b.toLowerCase() == "new york sweets";
+        if (aIsPriority != bIsPriority) return aIsPriority ? -1 : 1;
+        return 0;
+      });
+    }
+    return options;
   }
 
-  Future<void> addDropdownOption(String type, String newOption) async {
+  List<String> getAllDropdownOptions(String type) {
+    return List<String>.from(_dropdownOptions[type] ?? []);
+  }
+
+  bool isDropdownOptionHidden(String type, String option) {
+    return (_hiddenDropdownOptions[type] ?? {}).contains(option.toLowerCase());
+  }
+
+  Future<void> setDropdownOptionHidden(
+      String type, String option, bool hidden) async {
+    final values = _hiddenDropdownOptions.putIfAbsent(type, () => {});
+    final key = option.toLowerCase();
+    if (hidden) {
+      values.add(key);
+    } else {
+      values.remove(key);
+    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(
+      "hidden_dropdown_options_$type",
+      values.toList(),
+    );
+    notifyListeners();
+  }
+
+  Color categoryColor(String category) {
+    if (category.toLowerCase() == "snacks") {
+      return const Color(0xFFFACC15);
+    }
+    final value = _categoryColors[category];
+    if (value != null) return Color(value);
+    const builtIn = {
+      "Groceries": 0xFF10B981,
+      "Drinks": 0xFFF59E0B,
+      "Transport": 0xFF3B82F6,
+      "Restaurant": 0xFFEF4444,
+      "Health": 0xFFEC4899,
+      "Utility": 0xFF8B5CF6,
+      "Snacks": 0xFFFACC15,
+    };
+    return Color(builtIn[category] ?? 0xFF6B7280);
+  }
+
+  Future<void> addDropdownOption(String type, String newOption,
+      {int? colorValue}) async {
     final clean = newOption.trim();
     if (clean.isEmpty) return;
 
@@ -194,18 +257,29 @@ class AppProvider with ChangeNotifier {
     if (!_dropdownOptions[type]!
         .any((o) => o.toLowerCase() == clean.toLowerCase())) {
       _dropdownOptions[type]!.add(clean);
+      if (type == "expense_category" && colorValue != null) {
+        _categoryColors[clean] = colorValue;
+      }
       notifyListeners();
-      await MongoService.addCustomOption(type, clean);
+      await MongoService.addCustomOption(type, clean, colorValue: colorValue);
     }
   }
 
   Future<void> loadCustomOptions() async {
     for (final type in _dropdownOptions.keys) {
+      final prefs = await SharedPreferences.getInstance();
+      _hiddenDropdownOptions[type] =
+          (prefs.getStringList("hidden_dropdown_options_$type") ??
+                  const <String>[])
+              .toSet();
       final serverOpts = await MongoService.getCustomOptions(type);
       for (final opt in serverOpts) {
         if (!_dropdownOptions[type]!
-            .any((o) => o.toLowerCase() == opt.toLowerCase())) {
-          _dropdownOptions[type]!.add(opt);
+            .any((o) => o.toLowerCase() == opt.name.toLowerCase())) {
+          _dropdownOptions[type]!.add(opt.name);
+        }
+        if (type == "expense_category" && opt.colorValue != null) {
+          _categoryColors[opt.name] = opt.colorValue!;
         }
       }
     }
@@ -396,8 +470,10 @@ class AppProvider with ChangeNotifier {
     await fetchAllData();
   }
 
-  Future<void> updateExpense(Expense expense) async {
-    await MongoService.updateExpense(expense);
+  Future<void> updateExpense(Expense expense,
+      {bool updateAccountBalance = true}) async {
+    await MongoService.updateExpense(expense,
+        updateAccountBalance: updateAccountBalance);
     await fetchAllData();
   }
 

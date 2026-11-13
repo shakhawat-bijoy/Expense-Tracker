@@ -24,7 +24,8 @@ const ExpenseSchema = new mongoose.Schema({
       return getMonthString(this.date);
     } 
   },
-  notes: { type: String, default: "" }
+  notes: { type: String, default: "" },
+  accountDeductedFrom: { type: String, enum: ["pocket", "bank", null], default: null }
 }, { timestamps: true });
 
 ExpenseSchema.pre("save", function(next) {
@@ -46,9 +47,14 @@ const EarningShiftSchema = new mongoose.Schema({
   category: { type: String, required: true, default: "Delivery" },
   timeline: { type: String, required: true },
   hours: { type: Number, required: true },
+  minutes: { type: Number, default: 0 },
+  startMinutes: { type: Number },
+  finishMinutes: { type: Number },
+  breakMinutes: { type: Number, default: 0 },
+  breakMinutes: { type: Number, default: 0 },
   grossAmount: { type: Number, required: true },
-  rentDeduction: { type: Number, default: 8.33 },
-  taxPercent: { type: Number, default: 8.0 },
+  rentDeduction: { type: Number, default: 0 },
+  taxPercent: { type: Number, default: 0 },
   netAmount: { type: Number, required: true },
   paymentStatus: { type: String, enum: ["Pending", "Received"], default: "Pending" },
   payoutBatch: { type: String, default: "General" },
@@ -88,7 +94,8 @@ const DebtSchema = new mongoose.Schema({
   category: { type: String, default: "Personal" }, // "Personal", "Bank Loan", "Credit Card", "Family", etc.
   status: { type: String, enum: ["Pending", "Partial", "Settled"], default: "Pending" },
   notes: { type: String, default: "" },
-  month: { type: String }
+  month: { type: String },
+  direction: { type: String, enum: ["owed", "owed_to_me"], default: "owed" }
 }, { timestamps: true });
 
 DebtSchema.pre("save", function(next) {
@@ -112,7 +119,8 @@ const AccountBalanceSchema = new mongoose.Schema({
 // ─── Custom Dynamic Dropdown Options ─────────────────────────────────────
 const CustomOptionSchema = new mongoose.Schema({
   type: { type: String, required: true }, // 'expense_category', 'shift_role', 'payment_method', 'bill_category', 'debt_category'
-  name: { type: String, required: true }
+  name: { type: String, required: true },
+  colorValue: { type: Number }
 }, { timestamps: true });
 
 module.exports = {

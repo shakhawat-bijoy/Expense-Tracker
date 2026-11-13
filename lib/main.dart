@@ -48,6 +48,7 @@ class ExpenseTrackerApp extends StatelessWidget {
       themeMode: provider.themeMode,
       theme: ThemeData(
         useMaterial3: true,
+        splashFactory: NoSplash.splashFactory,
         brightness: Brightness.light,
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF6366F1),
@@ -101,6 +102,7 @@ class ExpenseTrackerApp extends StatelessWidget {
       ),
       darkTheme: ThemeData(
         useMaterial3: true,
+        splashFactory: NoSplash.splashFactory,
         brightness: Brightness.dark,
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF818CF8),
@@ -252,41 +254,9 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
         switchInCurve: Curves.easeInOut,
         child: _screens[_selectedIndex],
       ),
-      bottomNavigationBar: NavigationBar(
+      bottomNavigationBar: _MobileBottomNavigation(
         selectedIndex: _selectedIndex,
-        onDestinationSelected: (idx) => setState(() => _selectedIndex = idx),
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard_rounded),
-            label: "Home",
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.work_outline_rounded),
-            selectedIcon: Icon(Icons.work_rounded),
-            label: "Shifts",
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.receipt_long_outlined),
-            selectedIcon: Icon(Icons.receipt_long_rounded),
-            label: "Expenses",
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.credit_card_off_outlined),
-            selectedIcon: Icon(Icons.credit_card_off_rounded),
-            label: "Debts",
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.calendar_today_outlined),
-            selectedIcon: Icon(Icons.calendar_today_rounded),
-            label: "Bills",
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.analytics_outlined),
-            selectedIcon: Icon(Icons.analytics_rounded),
-            label: "Stats",
-          ),
-        ],
+        onSelected: (idx) => setState(() => _selectedIndex = idx),
       ),
     );
   }
@@ -347,6 +317,139 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
             child: const Text("Save & Connect"),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _MobileBottomNavigation extends StatelessWidget {
+  final int selectedIndex;
+  final ValueChanged<int> onSelected;
+
+  const _MobileBottomNavigation({
+    required this.selectedIndex,
+    required this.onSelected,
+  });
+
+  static const _items = [
+    (Icons.dashboard_outlined, Icons.dashboard_rounded, "Home"),
+    (Icons.work_outline_rounded, Icons.work_rounded, "Shifts"),
+    (Icons.receipt_long_outlined, Icons.receipt_long_rounded, "Expenses"),
+    (Icons.credit_card_off_outlined, Icons.credit_card_off_rounded, "Debts"),
+    (Icons.calendar_today_outlined, Icons.calendar_today_rounded, "Bills"),
+    (Icons.analytics_outlined, Icons.analytics_rounded, "Stats"),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+
+    return SafeArea(
+      top: false,
+      minimum: const EdgeInsets.fromLTRB(10, 0, 10, 8),
+      child: Container(
+        height: 68,
+        padding: const EdgeInsets.all(6),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1A1A2E) : theme.colorScheme.surface,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: isDark ? const Color(0xFF2A2A4A) : Colors.grey.shade200,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.08),
+              blurRadius: 18,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            for (var index = 0; index < _items.length; index++)
+              Expanded(
+                child: _MobileNavigationItem(
+                  icon: _items[index].$1,
+                  selectedIcon: _items[index].$2,
+                  label: _items[index].$3,
+                  selected: selectedIndex == index,
+                  color: cs.primary,
+                  onTap: () => onSelected(index),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MobileNavigationItem extends StatelessWidget {
+  final IconData icon;
+  final IconData selectedIcon;
+  final String label;
+  final bool selected;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _MobileNavigationItem({
+    required this.icon,
+    required this.selectedIcon,
+    required this.label,
+    required this.selected,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final inactiveColor = Theme.of(context).brightness == Brightness.dark
+        ? Colors.white60
+        : Colors.grey.shade600;
+
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      child: Tooltip(
+        message: label,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(18),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
+            margin: const EdgeInsets.symmetric(horizontal: 2),
+            decoration: BoxDecoration(
+              color: selected ? color.withValues(alpha: 0.14) : null,
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  selected ? selectedIcon : icon,
+                  size: 22,
+                  color: selected ? color : inactiveColor,
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 10,
+                    height: 1,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                    color: selected ? color : inactiveColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

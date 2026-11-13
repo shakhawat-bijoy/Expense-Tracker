@@ -44,9 +44,11 @@ class _DebtsScreenState extends State<DebtsScreen> {
               children: [
                 _buildFilterChip("All", debts.length),
                 const SizedBox(width: 8),
-                _buildFilterChip("Pending", debts.where((d) => !d.isSettled).length),
+                _buildFilterChip(
+                    "Pending", debts.where((d) => !d.isSettled).length),
                 const SizedBox(width: 8),
-                _buildFilterChip("Settled", debts.where((d) => d.isSettled).length),
+                _buildFilterChip(
+                    "Settled", debts.where((d) => d.isSettled).length),
               ],
             ),
           ),
@@ -56,11 +58,13 @@ class _DebtsScreenState extends State<DebtsScreen> {
             child: filteredDebts.isEmpty
                 ? _buildEmptyState(context, provider)
                 : ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     itemCount: filteredDebts.length,
                     itemBuilder: (context, index) {
                       final debt = filteredDebts[index];
-                      return _buildDebtCard(context, debt, provider, isDark, index);
+                      return _buildDebtCard(
+                          context, debt, provider, isDark, index);
                     },
                   ),
           ),
@@ -125,7 +129,8 @@ class _DebtsScreenState extends State<DebtsScreen> {
                       color: Colors.white.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(Icons.credit_card_off_rounded, color: Colors.white, size: 20),
+                    child: const Icon(Icons.credit_card_off_rounded,
+                        color: Colors.white, size: 20),
                   ),
                   const SizedBox(width: 10),
                   const Text(
@@ -139,7 +144,8 @@ class _DebtsScreenState extends State<DebtsScreen> {
                 ],
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(12),
@@ -159,9 +165,12 @@ class _DebtsScreenState extends State<DebtsScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildPayoffMetric("Total Debt", "€${total.toStringAsFixed(2)}", Colors.white70),
-              _buildPayoffMetric("Paid Off", "€${paid.toStringAsFixed(2)}", const Color(0xFF34D399)),
-              _buildPayoffMetric("Remaining", "€${remaining.toStringAsFixed(2)}", const Color(0xFFF87171)),
+              _buildPayoffMetric(
+                  "Total Debt", "€${total.toStringAsFixed(2)}", Colors.white70),
+              _buildPayoffMetric("Paid Off", "€${paid.toStringAsFixed(2)}",
+                  const Color(0xFF34D399)),
+              _buildPayoffMetric("Remaining",
+                  "€${remaining.toStringAsFixed(2)}", const Color(0xFFF87171)),
             ],
           ),
           const SizedBox(height: 16),
@@ -171,7 +180,8 @@ class _DebtsScreenState extends State<DebtsScreen> {
               value: (progress / 100).clamp(0.0, 1.0),
               minHeight: 10,
               backgroundColor: Colors.white.withValues(alpha: 0.15),
-              valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF34D399)),
+              valueColor:
+                  const AlwaysStoppedAnimation<Color>(Color(0xFF34D399)),
             ),
           ),
         ],
@@ -185,12 +195,14 @@ class _DebtsScreenState extends State<DebtsScreen> {
       children: [
         Text(
           label,
-          style: const TextStyle(color: Colors.white60, fontSize: 11, fontWeight: FontWeight.w500),
+          style: const TextStyle(
+              color: Colors.white60, fontSize: 11, fontWeight: FontWeight.w500),
         ),
         const SizedBox(height: 4),
         Text(
           value,
-          style: TextStyle(color: valueColor, fontSize: 16, fontWeight: FontWeight.bold),
+          style: TextStyle(
+              color: valueColor, fontSize: 16, fontWeight: FontWeight.bold),
         ),
       ],
     );
@@ -234,21 +246,25 @@ class _DebtsScreenState extends State<DebtsScreen> {
                       children: [
                         Text(
                           debt.title,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 16),
                         ),
                         if (debt.personName.isNotEmpty)
                           Text(
-                            "To: ${debt.personName} • ${debt.category}",
+                            "${debt.direction == "owed_to_me" ? "From" : "To"}: ${debt.personName} • ${debt.category}",
                             style: TextStyle(
                               fontSize: 12,
-                              color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                              color: isDark
+                                  ? Colors.grey.shade400
+                                  : Colors.grey.shade600,
                             ),
                           ),
                       ],
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
                       color: isSettled
                           ? Colors.green.withValues(alpha: 0.15)
@@ -258,13 +274,17 @@ class _DebtsScreenState extends State<DebtsScreen> {
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
-                      isSettled ? "Settled" : (debt.paidAmount > 0 ? "Partial" : "Pending"),
+                      isSettled
+                          ? "Settled"
+                          : (debt.paidAmount > 0 ? "Partial" : "Pending"),
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                         color: isSettled
                             ? Colors.green
-                            : (debt.paidAmount > 0 ? Colors.amber.shade700 : Colors.red),
+                            : (debt.paidAmount > 0
+                                ? Colors.amber.shade700
+                                : Colors.red),
                       ),
                     ),
                   ),
@@ -287,21 +307,28 @@ class _DebtsScreenState extends State<DebtsScreen> {
                       ),
                       Text(
                         "Total: €${debt.amount.toStringAsFixed(2)} (Paid: €${debt.paidAmount.toStringAsFixed(2)})",
-                        style: TextStyle(fontSize: 11, color: isDark ? Colors.grey.shade400 : Colors.grey.shade600),
+                        style: TextStyle(
+                            fontSize: 11,
+                            color: isDark
+                                ? Colors.grey.shade400
+                                : Colors.grey.shade600),
                       ),
                     ],
                   ),
                   if (!isSettled)
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 8),
                         visualDensity: VisualDensity.compact,
                         backgroundColor: cs.primary,
                         foregroundColor: Colors.white,
                       ),
                       onPressed: () => _showMakePaymentModal(context, debt),
                       icon: const Icon(Icons.payments_rounded, size: 16),
-                      label: const Text("Make Payment"),
+                      label: Text(debt.direction == "owed_to_me"
+                          ? "Record Repayment"
+                          : "Make Payment"),
                     ),
                 ],
               ),
@@ -311,7 +338,8 @@ class _DebtsScreenState extends State<DebtsScreen> {
                 child: LinearProgressIndicator(
                   value: (debt.paidPercent / 100).clamp(0.0, 1.0),
                   minHeight: 6,
-                  backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.grey.shade200,
+                  backgroundColor:
+                      isDark ? const Color(0xFF0F172A) : Colors.grey.shade200,
                   valueColor: AlwaysStoppedAnimation<Color>(
                     isSettled ? Colors.green : cs.primary,
                   ),
@@ -321,11 +349,19 @@ class _DebtsScreenState extends State<DebtsScreen> {
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    Icon(Icons.event_outlined, size: 14, color: isDark ? Colors.grey.shade400 : Colors.grey.shade600),
+                    Icon(Icons.event_outlined,
+                        size: 14,
+                        color: isDark
+                            ? Colors.grey.shade400
+                            : Colors.grey.shade600),
                     const SizedBox(width: 4),
                     Text(
                       "Due Date: ${DateFormat('dd MMM yyyy').format(debt.dueDate!)}",
-                      style: TextStyle(fontSize: 11, color: isDark ? Colors.grey.shade400 : Colors.grey.shade600),
+                      style: TextStyle(
+                          fontSize: 11,
+                          color: isDark
+                              ? Colors.grey.shade400
+                              : Colors.grey.shade600),
                     ),
                   ],
                 ),
@@ -344,7 +380,8 @@ class _DebtsScreenState extends State<DebtsScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.sentiment_satisfied_alt_rounded, size: 64, color: Colors.grey.shade400),
+            Icon(Icons.sentiment_satisfied_alt_rounded,
+                size: 64, color: Colors.grey.shade400),
             const SizedBox(height: 16),
             const Text(
               "No Debts to Pay Off",
@@ -368,16 +405,20 @@ class _DebtsScreenState extends State<DebtsScreen> {
 
     final titleCtrl = TextEditingController(text: debt?.title ?? "");
     final personCtrl = TextEditingController(text: debt?.personName ?? "");
-    final amountCtrl = TextEditingController(text: debt != null ? debt.amount.toString() : "");
+    final amountCtrl =
+        TextEditingController(text: debt != null ? debt.amount.toString() : "");
     final notesCtrl = TextEditingController(text: debt?.notes ?? "");
     DateTime? dueDate = debt?.dueDate;
     String category = debt?.category ?? "Personal Loan";
+    String direction = debt?.direction ?? "owed";
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: provider.isDarkMode ? const Color(0xFF1E293B) : Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      backgroundColor:
+          provider.isDarkMode ? const Color(0xFF1E293B) : Colors.white,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (ctx) {
         return StatefulBuilder(
           builder: (context, setModalState) {
@@ -398,11 +439,13 @@ class _DebtsScreenState extends State<DebtsScreen> {
                       children: [
                         Text(
                           isEditing ? "Edit Debt" : "Add Debt to Pay Off",
-                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.bold),
                         ),
                         if (isEditing)
                           IconButton(
-                            icon: const Icon(Icons.delete_outline_rounded, color: Colors.red),
+                            icon: const Icon(Icons.delete_outline_rounded,
+                                color: Colors.red),
                             onPressed: () async {
                               await provider.deleteDebt(debt.id);
                               if (ctx.mounted) Navigator.pop(ctx);
@@ -420,10 +463,33 @@ class _DebtsScreenState extends State<DebtsScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      initialValue: direction,
+                      decoration: const InputDecoration(
+                        labelText: "Debt Direction",
+                        prefixIcon: Icon(Icons.swap_horiz_rounded),
+                      ),
+                      items: const [
+                        DropdownMenuItem(
+                          value: "owed",
+                          child: Text("I owe this money"),
+                        ),
+                        DropdownMenuItem(
+                          value: "owed_to_me",
+                          child: Text("They borrowed from me"),
+                        ),
+                      ],
+                      onChanged: (value) {
+                        if (value != null) {
+                          setModalState(() => direction = value);
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 12),
                     TextField(
                       controller: personCtrl,
                       decoration: const InputDecoration(
-                        labelText: "Creditor / Bank / Person Name",
+                        labelText: "Person / Bank Name",
                         hintText: "e.g. Chase Bank, John Doe",
                         prefixIcon: Icon(Icons.person_outline_rounded),
                       ),
@@ -431,7 +497,8 @@ class _DebtsScreenState extends State<DebtsScreen> {
                     const SizedBox(height: 12),
                     TextField(
                       controller: amountCtrl,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
                       decoration: const InputDecoration(
                         labelText: "Total Amount Owed (€) *",
                         prefixIcon: Icon(Icons.euro_rounded),
@@ -453,7 +520,8 @@ class _DebtsScreenState extends State<DebtsScreen> {
                       onTap: () async {
                         final picked = await showDatePicker(
                           context: context,
-                          initialDate: dueDate ?? DateTime.now().add(const Duration(days: 30)),
+                          initialDate: dueDate ??
+                              DateTime.now().add(const Duration(days: 30)),
                           firstDate: DateTime(2020),
                           lastDate: DateTime(2035),
                         );
@@ -463,7 +531,8 @@ class _DebtsScreenState extends State<DebtsScreen> {
                       },
                       borderRadius: BorderRadius.circular(12),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 14),
                         decoration: BoxDecoration(
                           border: Border.all(color: Colors.grey.shade400),
                           borderRadius: BorderRadius.circular(12),
@@ -476,7 +545,9 @@ class _DebtsScreenState extends State<DebtsScreen> {
                                   ? "Due: ${DateFormat('dd MMM yyyy').format(dueDate!)}"
                                   : "Set Due Date (Optional)",
                               style: TextStyle(
-                                color: dueDate != null ? null : Colors.grey.shade600,
+                                color: dueDate != null
+                                    ? null
+                                    : Colors.grey.shade600,
                               ),
                             ),
                             const Icon(Icons.calendar_today_rounded, size: 18),
@@ -498,7 +569,8 @@ class _DebtsScreenState extends State<DebtsScreen> {
                       child: ElevatedButton(
                         onPressed: () async {
                           final title = titleCtrl.text.trim();
-                          final amount = double.tryParse(amountCtrl.text) ?? 0.0;
+                          final amount =
+                              double.tryParse(amountCtrl.text) ?? 0.0;
                           if (title.isEmpty || amount <= 0) return;
 
                           if (isEditing) {
@@ -507,6 +579,7 @@ class _DebtsScreenState extends State<DebtsScreen> {
                               personName: personCtrl.text.trim(),
                               amount: amount,
                               category: category,
+                              direction: direction,
                               dueDate: dueDate,
                               notes: notesCtrl.text.trim(),
                             );
@@ -518,6 +591,7 @@ class _DebtsScreenState extends State<DebtsScreen> {
                               personName: personCtrl.text.trim(),
                               amount: amount,
                               category: category,
+                              direction: direction,
                               dueDate: dueDate,
                               notes: notesCtrl.text.trim(),
                               month: provider.selectedMonth,
@@ -548,8 +622,10 @@ class _DebtsScreenState extends State<DebtsScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: provider.isDarkMode ? const Color(0xFF1E293B) : Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      backgroundColor:
+          provider.isDarkMode ? const Color(0xFF1E293B) : Colors.white,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (ctx) {
         return StatefulBuilder(
           builder: (context, setModalState) {
@@ -565,19 +641,24 @@ class _DebtsScreenState extends State<DebtsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    "Make Payment on ${debt.title}",
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    debt.direction == "owed_to_me"
+                        ? "Record Repayment for ${debt.title}"
+                        : "Make Payment on ${debt.title}",
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     "Remaining Balance: €${debt.remainingAmount.toStringAsFixed(2)}",
-                    style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                        color: Colors.redAccent, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 16),
                   TextField(
                     controller: amountCtrl,
                     autofocus: true,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
                     decoration: const InputDecoration(
                       labelText: "Payment Amount (€) *",
                       hintText: "e.g. 50.00",
@@ -585,29 +666,37 @@ class _DebtsScreenState extends State<DebtsScreen> {
                     ),
                   ),
                   const SizedBox(height: 14),
-                  const Text(
-                    "Deduct Payment From Account:",
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  Text(
+                    debt.direction == "owed_to_me"
+                        ? "Deposit Repayment Into Account:"
+                        : "Deduct Payment From Account:",
+                    style: const TextStyle(
+                        fontSize: 12, fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 6),
                   Row(
                     children: [
                       ChoiceChip(
-                        label: Text("Pocket (€${provider.pocketBalance.toStringAsFixed(0)})"),
+                        label: Text(
+                            "Pocket (€${provider.pocketBalance.toStringAsFixed(0)})"),
                         selected: deductFrom == "Pocket",
-                        onSelected: (val) => setModalState(() => deductFrom = "Pocket"),
+                        onSelected: (val) =>
+                            setModalState(() => deductFrom = "Pocket"),
                       ),
                       const SizedBox(width: 8),
                       ChoiceChip(
-                        label: Text("Bank (€${provider.bankBalance.toStringAsFixed(0)})"),
+                        label: Text(
+                            "Bank (€${provider.bankBalance.toStringAsFixed(0)})"),
                         selected: deductFrom == "Bank Account",
-                        onSelected: (val) => setModalState(() => deductFrom = "Bank Account"),
+                        onSelected: (val) =>
+                            setModalState(() => deductFrom = "Bank Account"),
                       ),
                       const SizedBox(width: 8),
                       ChoiceChip(
                         label: const Text("Don't Deduct"),
                         selected: deductFrom == "None",
-                        onSelected: (val) => setModalState(() => deductFrom = "None"),
+                        onSelected: (val) =>
+                            setModalState(() => deductFrom = "None"),
                       ),
                     ],
                   ),

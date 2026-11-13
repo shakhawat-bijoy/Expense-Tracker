@@ -88,11 +88,13 @@ class ExpensesScreen extends StatelessWidget {
                           final range = await showDateRangePicker(
                             context: context,
                             firstDate: DateTime(2023),
-                            lastDate: DateTime.now().add(const Duration(days: 365)),
+                            lastDate:
+                                DateTime.now().add(const Duration(days: 365)),
                             initialDateRange: provider.filterStartDate != null
                                 ? DateTimeRange(
                                     start: provider.filterStartDate!,
-                                    end: provider.filterEndDate ?? DateTime.now(),
+                                    end: provider.filterEndDate ??
+                                        DateTime.now(),
                                   )
                                 : null,
                           );
@@ -107,7 +109,8 @@ class ExpensesScreen extends StatelessWidget {
                         Padding(
                           padding: const EdgeInsets.only(left: 6),
                           child: ActionChip(
-                            avatar: const Icon(Icons.clear_all_rounded, size: 16),
+                            avatar:
+                                const Icon(Icons.clear_all_rounded, size: 16),
                             label: const Text("Clear Filters",
                                 style: TextStyle(fontSize: 12)),
                             onPressed: () => provider.clearFilters(),
@@ -148,7 +151,9 @@ class ExpensesScreen extends StatelessWidget {
                             "Tap the + button to record a new expense. Everything is updatable.",
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              color: isDark ? Colors.white54 : Colors.grey.shade600,
+                              color: isDark
+                                  ? Colors.white54
+                                  : Colors.grey.shade600,
                               fontSize: 13,
                             ),
                           ),
@@ -170,7 +175,8 @@ class ExpensesScreen extends StatelessWidget {
                       itemCount: expenses.length,
                       itemBuilder: (context, index) {
                         final expense = expenses[index];
-                        final catColor = _categoryColor(expense.category);
+                        final catColor =
+                            provider.categoryColor(expense.category);
 
                         return Dismissible(
                           key: Key(expense.id),
@@ -222,7 +228,8 @@ class ExpensesScreen extends StatelessWidget {
                               contentPadding: const EdgeInsets.symmetric(
                                   horizontal: 16, vertical: 6),
                               leading: CircleAvatar(
-                                backgroundColor: catColor.withValues(alpha: 0.12),
+                                backgroundColor:
+                                    catColor.withValues(alpha: 0.12),
                                 child: Icon(
                                   _categoryIcon(expense.category),
                                   color: catColor,
@@ -305,11 +312,13 @@ class ExpensesScreen extends StatelessWidget {
                                       size: 16, color: Colors.grey),
                                 ],
                               ),
-                              onTap: () =>
-                                  _showAddExpenseModal(context, expense: expense),
+                              onTap: () => _showAddExpenseModal(context,
+                                  expense: expense),
                             ),
                           ),
-                        ).animate().fadeIn(duration: 250.ms, delay: (index * 30).ms);
+                        )
+                            .animate()
+                            .fadeIn(duration: 250.ms, delay: (index * 30).ms);
                       },
                     ),
                   ),
@@ -335,25 +344,6 @@ class ExpensesScreen extends StatelessWidget {
           borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (_) => _ExpenseFormSheet(expense: expense),
     );
-  }
-
-  Color _categoryColor(String cat) {
-    switch (cat) {
-      case "Groceries":
-        return const Color(0xFF10B981);
-      case "Drinks":
-        return const Color(0xFFF59E0B);
-      case "Transport":
-        return const Color(0xFF3B82F6);
-      case "Restaurant":
-        return const Color(0xFFEF4444);
-      case "Health":
-        return const Color(0xFFEC4899);
-      case "Utility":
-        return const Color(0xFF8B5CF6);
-      default:
-        return const Color(0xFF6B7280);
-    }
   }
 
   IconData _categoryIcon(String cat) {
@@ -471,8 +461,8 @@ class _ExpenseFormSheetState extends State<_ExpenseFormSheet> {
               children: [
                 Text(
                   _isEditing ? "Edit Expense" : "New Expense",
-                  style:
-                      const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                      fontSize: 22, fontWeight: FontWeight.bold),
                 ),
                 if (_isEditing)
                   IconButton(
@@ -503,6 +493,7 @@ class _ExpenseFormSheetState extends State<_ExpenseFormSheet> {
               value: _category,
               prefixIcon: Icons.category_outlined,
               addOptionLabel: "Add Category",
+              allowColor: true,
               onChanged: (val) {
                 if (val != null) setState(() => _category = val);
               },
@@ -523,9 +514,11 @@ class _ExpenseFormSheetState extends State<_ExpenseFormSheet> {
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 title: const Text("Deduct from Account Balance",
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                    style:
+                        TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                 subtitle: Text(
-                  _paymentMethod.toLowerCase().contains("bank")
+                  _paymentMethod.toLowerCase().contains("bank") ||
+                          _paymentMethod.toLowerCase().contains("debit")
                       ? "Deducts from Bank Account"
                       : "Deducts from Pocket Cash",
                   style: const TextStyle(fontSize: 11),

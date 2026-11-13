@@ -7,20 +7,52 @@ import "../providers/app_provider.dart";
 import "../widgets/addable_dropdown.dart";
 import "../widgets/month_navigation_bar.dart";
 
+TimeOfDay _timeFromMinutes(int? minutes, TimeOfDay fallback) {
+  if (minutes == null) return fallback;
+  return TimeOfDay(hour: (minutes ~/ 60) % 24, minute: minutes % 60);
+}
+
+TimeOfDay _parseTimelineTime(String timeline, TimeOfDay fallback, bool end) {
+  final parts = timeline.split("-");
+  if (parts.length != 2) return fallback;
+  final value = parts[end ? 1 : 0].trim();
+  final match =
+      RegExp(r"^(\d{1,2}):(\d{2})(?:\s*([AaPp][Mm]))?$").firstMatch(value);
+  if (match == null) return fallback;
+  var hour = int.parse(match.group(1)!);
+  final minute = int.parse(match.group(2)!);
+  final meridiem = match.group(3)?.toLowerCase();
+  if (meridiem != null) {
+    if (meridiem == "pm" && hour != 12) hour += 12;
+    if (meridiem == "am" && hour == 12) hour = 0;
+  }
+  return hour >= 0 && hour < 24 && minute < 60
+      ? TimeOfDay(hour: hour, minute: minute)
+      : fallback;
+}
+
+int _timeMinutes(TimeOfDay time) => time.hour * 60 + time.minute;
+
+String _format12Hour(BuildContext context, TimeOfDay time) =>
+    MaterialLocalizations.of(context)
+        .formatTimeOfDay(time, alwaysUse24HourFormat: false);
+
 class EarningsScreen extends StatelessWidget {
   const EarningsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<AppProvider>();
-    final shifts = provider.shifts;
+    final shifts = List<EarningShift>.from(provider.shifts)
+      ..sort((a, b) => b.date.compareTo(a.date));
     final currency = NumberFormat.currency(locale: "de_DE", symbol: "€");
     final dateFormat = DateFormat("dd MMM yyyy");
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     // Summary stats
     final totalNet = shifts.fold(0.0, (acc, s) => acc + s.netAmount);
-    final totalHours = shifts.fold(0.0, (acc, s) => acc + s.hours);
+    final totalMinutes =
+        shifts.fold(0, (acc, s) => acc + (s.hours * 60).round() + s.minutes);
 
     return Scaffold(
       body: Column(
@@ -60,7 +92,7 @@ class EarningsScreen extends StatelessWidget {
                 Container(height: 36, width: 1, color: Colors.white24),
                 _EarningStat(
                   label: "Total Hours",
-                  value: "${totalHours.toStringAsFixed(1)}h",
+                  value: "${totalMinutes ~/ 60}h ${totalMinutes % 60}m",
                   icon: Icons.timer_rounded,
                 ),
                 Container(height: 36, width: 1, color: Colors.white24),
@@ -101,7 +133,9 @@ class EarningsScreen extends StatelessWidget {
                             "Log your shifts and job earnings. Tap any shift to edit rates, hours, deductions, or payout status.",
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              color: isDark ? Colors.white54 : Colors.grey.shade600,
+                              color: isDark
+                                  ? Colors.white54
+                                  : Colors.grey.shade600,
                               fontSize: 13,
                             ),
                           ),
@@ -137,7 +171,8 @@ class EarningsScreen extends StatelessWidget {
                             ),
                           ),
                           child: InkWell(
-                            onTap: () => _showAddShiftSheet(context, shift: shift),
+                            onTap: () =>
+                                _showAddShiftSheet(context, shift: shift),
                             borderRadius: BorderRadius.circular(16),
                             child: Padding(
                               padding: const EdgeInsets.all(16),
@@ -190,8 +225,7 @@ class EarningsScreen extends StatelessWidget {
                                       InkWell(
                                         onTap: () => provider
                                             .toggleShiftStatus(shift.id),
-                                        borderRadius:
-                                            BorderRadius.circular(20),
+                                        borderRadius: BorderRadius.circular(20),
                                         child: Container(
                                           padding: const EdgeInsets.symmetric(
                                               horizontal: 10, vertical: 4),
@@ -215,7 +249,8 @@ class EarningsScreen extends StatelessWidget {
                                               Icon(
                                                 isReceived
                                                     ? Icons.check_circle_rounded
-                                                    : Icons.hourglass_top_rounded,
+                                                    : Icons
+                                                        .hourglass_top_rounded,
                                                 size: 14,
                                                 color: isReceived
                                                     ? const Color(0xFF10B981)
@@ -239,9 +274,9 @@ class EarningsScreen extends StatelessWidget {
                                     ],
                                   ),
                                   const Divider(height: 20),
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
+                                  Wrap(
+                                    spacing: 18,
+                                    runSpacing: 10,
                                     children: [
                                       _ShiftDetail(
                                         label: "Timeline",
@@ -249,7 +284,13 @@ class EarningsScreen extends StatelessWidget {
                                       ),
                                       _ShiftDetail(
                                         label: "Hours",
-                                        value: "${shift.hours}h",
+                                        value: shift.minutes > 0
+                                            ? "${shift.hours}h ${shift.minutes}m"
+                                            : "${shift.hours}h",
+                                      ),
+                                      _ShiftDetail(
+                                        label: "Break",
+                                        value: "${shift.breakMinutes}m",
                                       ),
                                       _ShiftDetail(
                                         label: "Gross",
@@ -258,8 +299,7 @@ class EarningsScreen extends StatelessWidget {
                                       ),
                                       _ShiftDetail(
                                         label: "Net",
-                                        value:
-                                            currency.format(shift.netAmount),
+                                        value: currency.format(shift.netAmount),
                                         isBold: true,
                                         color: const Color(0xFF10B981),
                                       ),
@@ -269,7 +309,9 @@ class EarningsScreen extends StatelessWidget {
                               ),
                             ),
                           ),
-                        ).animate().fadeIn(duration: 250.ms, delay: (index * 30).ms);
+                        )
+                            .animate()
+                            .fadeIn(duration: 250.ms, delay: (index * 30).ms);
                       },
                     ),
                   ),
@@ -385,8 +427,7 @@ class _AddShiftSheet extends StatefulWidget {
 
 class _AddShiftSheetState extends State<_AddShiftSheet> {
   late String _category;
-  late final TextEditingController _timelineCtrl;
-  late final TextEditingController _hoursCtrl;
+  late final TextEditingController _breakCtrl;
   late final TextEditingController _grossCtrl;
   late final TextEditingController _rentCtrl;
   late final TextEditingController _taxCtrl;
@@ -394,6 +435,8 @@ class _AddShiftSheetState extends State<_AddShiftSheet> {
   late DateTime _selectedDate;
   late String _paymentStatus;
   late String _depositTo;
+  late TimeOfDay _startTime;
+  late TimeOfDay _finishTime;
 
   bool get isEditing => widget.shift != null;
 
@@ -402,17 +445,28 @@ class _AddShiftSheetState extends State<_AddShiftSheet> {
     super.initState();
     final s = widget.shift;
     _category = s?.category ?? "Delivery";
-    _timelineCtrl =
-        TextEditingController(text: s?.timeline ?? "10:00 - 18:00");
-    _hoursCtrl = TextEditingController(text: s?.hours.toString() ?? "8.0");
+    const defaultStart = TimeOfDay(hour: 10, minute: 0);
+    const defaultFinish = TimeOfDay(hour: 18, minute: 0);
+    _startTime = _timeFromMinutes(
+      s?.startMinutes,
+      s == null
+          ? defaultStart
+          : _parseTimelineTime(s.timeline, defaultStart, false),
+    );
+    _finishTime = _timeFromMinutes(
+      s?.finishMinutes,
+      s == null
+          ? defaultFinish
+          : _parseTimelineTime(s.timeline, defaultFinish, true),
+    );
+    _breakCtrl = TextEditingController(text: s?.breakMinutes.toString() ?? "0");
     _grossCtrl =
         TextEditingController(text: s != null ? s.grossAmount.toString() : "");
     _rentCtrl = TextEditingController(
-        text: s != null ? s.rentDeduction.toString() : "8.33");
+        text: s != null ? s.rentDeduction.toString() : "0");
     _taxCtrl =
-        TextEditingController(text: s != null ? s.taxPercent.toString() : "8.0");
-    _batchCtrl =
-        TextEditingController(text: s?.payoutBatch ?? "General");
+        TextEditingController(text: s != null ? s.taxPercent.toString() : "0");
+    _batchCtrl = TextEditingController(text: s?.payoutBatch ?? "General");
     _paymentStatus = s?.paymentStatus ?? "Pending";
     _depositTo = s?.depositTo ?? "Bank Account";
     _selectedDate = s?.date ?? DateTime.now();
@@ -420,13 +474,43 @@ class _AddShiftSheetState extends State<_AddShiftSheet> {
 
   @override
   void dispose() {
-    _timelineCtrl.dispose();
-    _hoursCtrl.dispose();
+    _breakCtrl.dispose();
     _grossCtrl.dispose();
     _rentCtrl.dispose();
     _taxCtrl.dispose();
     _batchCtrl.dispose();
     super.dispose();
+  }
+
+  int get _breakMinutes => int.tryParse(_breakCtrl.text.trim()) ?? 0;
+
+  int get _shiftDurationMinutes {
+    var duration = _timeMinutes(_finishTime) - _timeMinutes(_startTime);
+    if (duration <= 0) duration += 24 * 60;
+    return duration;
+  }
+
+  int get _workedMinutes =>
+      (_shiftDurationMinutes - _breakMinutes).clamp(0, 24 * 60);
+
+  Future<void> _pickTime(bool start) async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: start ? _startTime : _finishTime,
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: false),
+        child: child!,
+      ),
+    );
+    if (picked != null) {
+      setState(() {
+        if (start) {
+          _startTime = picked;
+        } else {
+          _finishTime = picked;
+        }
+      });
+    }
   }
 
   @override
@@ -458,8 +542,8 @@ class _AddShiftSheetState extends State<_AddShiftSheet> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(isEditing ? "Edit Shift" : "Log Shift",
-                    style:
-                        const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                    style: const TextStyle(
+                        fontSize: 22, fontWeight: FontWeight.bold)),
                 if (isEditing)
                   IconButton(
                     icon: const Icon(Icons.delete_outline_rounded,
@@ -508,26 +592,62 @@ class _AddShiftSheetState extends State<_AddShiftSheet> {
               ),
             ),
             const SizedBox(height: 14),
-            TextField(
-              controller: _timelineCtrl,
-              decoration: const InputDecoration(
-                labelText: "Timeline",
-                hintText: "e.g. 10:00 - 18:00",
-                prefixIcon: Icon(Icons.schedule_rounded),
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    onTap: () => _pickTime(true),
+                    borderRadius: BorderRadius.circular(12),
+                    child: InputDecorator(
+                      decoration: const InputDecoration(
+                        labelText: "Starting time",
+                        prefixIcon: Icon(Icons.login_rounded),
+                      ),
+                      child: Text(_format12Hour(context, _startTime)),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: InkWell(
+                    onTap: () => _pickTime(false),
+                    borderRadius: BorderRadius.circular(12),
+                    child: InputDecorator(
+                      decoration: const InputDecoration(
+                        labelText: "Finish time",
+                        prefixIcon: Icon(Icons.logout_rounded),
+                      ),
+                      child: Text(_format12Hour(context, _finishTime)),
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 14),
             Row(
               children: [
                 Expanded(
-                  child: TextField(
-                    controller: _hoursCtrl,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
+                  child: InputDecorator(
                     decoration: const InputDecoration(
-                      labelText: "Hours Worked *",
+                      labelText: "Hours Worked",
                       prefixIcon: Icon(Icons.timer_rounded),
                     ),
+                    child: Text(
+                      "${_workedMinutes ~/ 60}h ${_workedMinutes % 60}m",
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    controller: _breakCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: "Break (minutes)",
+                      prefixIcon: Icon(Icons.free_breakfast_rounded),
+                    ),
+                    onChanged: (_) => setState(() {}),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -585,8 +705,10 @@ class _AddShiftSheetState extends State<_AddShiftSheet> {
                       prefixIcon: Icon(Icons.assignment_turned_in_rounded),
                     ),
                     items: const [
-                      DropdownMenuItem(value: "Pending", child: Text("Pending")),
-                      DropdownMenuItem(value: "Received", child: Text("Received")),
+                      DropdownMenuItem(
+                          value: "Pending", child: Text("Pending")),
+                      DropdownMenuItem(
+                          value: "Received", child: Text("Received")),
                     ],
                     onChanged: (v) {
                       if (v != null) setState(() => _paymentStatus = v);
@@ -619,9 +741,17 @@ class _AddShiftSheetState extends State<_AddShiftSheet> {
                 final gross = double.tryParse(
                         _grossCtrl.text.replaceAll(",", ".").trim()) ??
                     0.0;
-                final hours = double.tryParse(
-                        _hoursCtrl.text.replaceAll(",", ".").trim()) ??
-                    0.0;
+                final hours = (_workedMinutes ~/ 60).toDouble();
+                final minutes = _workedMinutes % 60;
+                if (_breakMinutes < 0 ||
+                    _breakMinutes > _shiftDurationMinutes) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                        content:
+                            Text("Break cannot exceed the shift duration")),
+                  );
+                  return;
+                }
                 final rent = double.tryParse(
                         _rentCtrl.text.replaceAll(",", ".").trim()) ??
                     0.0;
@@ -638,8 +768,13 @@ class _AddShiftSheetState extends State<_AddShiftSheet> {
                   final updated = widget.shift!.copyWith(
                     category: _category,
                     date: _selectedDate,
-                    timeline: _timelineCtrl.text.trim(),
+                    timeline:
+                        "${_format12Hour(context, _startTime)} - ${_format12Hour(context, _finishTime)}",
                     hours: hours,
+                    minutes: minutes,
+                    startMinutes: _timeMinutes(_startTime),
+                    finishMinutes: _timeMinutes(_finishTime),
+                    breakMinutes: _breakMinutes,
                     grossAmount: gross,
                     rentDeduction: rent,
                     taxPercent: tax,
@@ -653,8 +788,13 @@ class _AddShiftSheetState extends State<_AddShiftSheet> {
                     id: "",
                     date: _selectedDate,
                     category: _category,
-                    timeline: _timelineCtrl.text.trim(),
+                    timeline:
+                        "${_format12Hour(context, _startTime)} - ${_format12Hour(context, _finishTime)}",
                     hours: hours,
+                    minutes: minutes,
+                    startMinutes: _timeMinutes(_startTime),
+                    finishMinutes: _timeMinutes(_finishTime),
+                    breakMinutes: _breakMinutes,
                     grossAmount: gross,
                     rentDeduction: rent,
                     taxPercent: tax,
