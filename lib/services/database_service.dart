@@ -213,14 +213,6 @@ class DatabaseService {
         );
       }
     }
-    final budgetColumns = await db.rawQuery('PRAGMA table_info(budget)');
-    final budgetColumnNames =
-        budgetColumns.map((row) => row['name'].toString()).toSet();
-    if (!budgetColumnNames.contains('socialInsurance')) {
-      await db.execute(
-        'ALTER TABLE budget ADD COLUMN socialInsurance REAL NOT NULL DEFAULT 0',
-      );
-    }
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
@@ -231,6 +223,7 @@ class DatabaseService {
 
     if (oldVersion < 4) {
       await _ensureShiftColumns(db);
+      await _ensureBudgetSocialInsuranceColumn(db);
     }
   }
 
@@ -475,8 +468,19 @@ class DatabaseService {
 
   // ─── Budget ───────────────────────────────────────────────────────────────
 
+  Future<void> _ensureBudgetSocialInsuranceColumn(Database db) async {
+    final columns = await db.rawQuery('PRAGMA table_info(budget)');
+    final names = columns.map((row) => row['name'].toString()).toSet();
+    if (!names.contains('socialInsurance')) {
+      await db.execute(
+        'ALTER TABLE budget ADD COLUMN socialInsurance REAL NOT NULL DEFAULT 0',
+      );
+    }
+  }
+
   Future<MonthlyBudget> getBudget({String? month}) async {
     final db = await database;
+    await _ensureBudgetSocialInsuranceColumn(db);
     if (month == null || month.isEmpty) {
       return MonthlyBudget(month: "", amount: 0.0);
     }
@@ -497,6 +501,7 @@ class DatabaseService {
 
   Future<void> setBudget(MonthlyBudget budget) async {
     final db = await database;
+    await _ensureBudgetSocialInsuranceColumn(db);
     await db.insert(
       'budget',
       budget.toJson(),

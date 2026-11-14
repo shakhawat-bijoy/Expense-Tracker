@@ -413,8 +413,15 @@ class _MonthlyInsuranceDialogState extends State<_MonthlyInsuranceDialog> {
       return;
     }
 
-    await context.read<AppProvider>().saveSocialInsurance(amount);
-    if (mounted) Navigator.pop(context);
+    try {
+      await context.read<AppProvider>().saveSocialInsurance(amount);
+      if (mounted) Navigator.pop(context);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Could not save insurance: $error")),
+      );
+    }
   }
 
   @override

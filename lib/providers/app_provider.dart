@@ -551,7 +551,8 @@ class AppProvider with ChangeNotifier {
       notes: _budget.notes,
     );
     await MongoService.setBudget(budget);
-    await fetchAllData();
+    _budget = budget;
+    notifyListeners();
   }
 
   // ─── Computed Stats ─────────────────────────────────────────────────────
