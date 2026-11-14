@@ -737,7 +737,7 @@ class _AddShiftSheetState extends State<_AddShiftSheet> {
             ),
             const SizedBox(height: 24),
             ElevatedButton(
-              onPressed: () {
+              onPressed: () async {
                 final gross = double.tryParse(
                         _grossCtrl.text.replaceAll(",", ".").trim()) ??
                     0.0;
@@ -782,7 +782,15 @@ class _AddShiftSheetState extends State<_AddShiftSheet> {
                     paymentStatus: _paymentStatus,
                     depositTo: _depositTo,
                   );
-                  provider.updateShift(updated);
+                  try {
+                    await provider.updateShift(updated);
+                  } catch (error) {
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text("Could not save shift: $error")),
+                    );
+                    return;
+                  }
                 } else {
                   final newShift = EarningShift(
                     id: "",
@@ -804,9 +812,18 @@ class _AddShiftSheetState extends State<_AddShiftSheet> {
                     depositTo: _depositTo,
                     month: provider.selectedMonth,
                   );
-                  provider.addShift(newShift);
+                  try {
+                    await provider.addShift(newShift);
+                  } catch (error) {
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text("Could not save shift: $error")),
+                    );
+                    return;
+                  }
                 }
 
+                if (!context.mounted) return;
                 Navigator.pop(context);
               },
               child: Text(isEditing ? "Update Shift" : "Save Shift"),

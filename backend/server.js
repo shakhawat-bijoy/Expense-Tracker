@@ -30,6 +30,15 @@ app.use(cors({
 }));
 app.use(express.json({ limit: "1mb" }));
 
+function calculateWorkedMinutes(startMinutes, finishMinutes, breakMinutes = 0) {
+  if (!Number.isFinite(startMinutes) || !Number.isFinite(finishMinutes)) {
+    return null;
+  }
+  let duration = finishMinutes - startMinutes;
+  if (duration <= 0) duration += 24 * 60;
+  return Math.max(0, duration - Math.max(0, breakMinutes));
+}
+
 // Helper to build month query filter
 function buildMonthFilter(monthQuery, dateField = "date") {
   if (!monthQuery || monthQuery === "all") return {};
@@ -45,15 +54,6 @@ function buildMonthFilter(monthQuery, dateField = "date") {
         { [dateField]: { $gte: start, $lt: end } }
       ]
     };
-  }
-
-  function calculateWorkedMinutes(startMinutes, finishMinutes, breakMinutes = 0) {
-    if (!Number.isFinite(startMinutes) || !Number.isFinite(finishMinutes)) {
-      return null;
-    }
-    let duration = finishMinutes - startMinutes;
-    if (duration <= 0) duration += 24 * 60;
-    return Math.max(0, duration - Math.max(0, breakMinutes));
   }
   return { month: monthQuery };
 }

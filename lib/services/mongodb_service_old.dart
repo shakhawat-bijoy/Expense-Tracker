@@ -306,25 +306,37 @@ class MongoService {
 
   static Future<void> insertShift(EarningShift shift) async {
     try {
-      await http.post(
+      final response = await http.post(
         Uri.parse("$baseUrl/shifts"),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode(shift.toJson()),
       );
+      if (response.statusCode != 201) {
+        throw StateError(
+          "Could not save shift (${response.statusCode}): ${response.body}",
+        );
+      }
     } catch (e) {
       debugPrint("❌ Error inserting shift: $e");
+      rethrow;
     }
   }
 
   static Future<void> updateShift(EarningShift shift) async {
     try {
-      await http.put(
+      final response = await http.put(
         Uri.parse("$baseUrl/shifts/${shift.id}"),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode(shift.toJson()),
       );
+      if (response.statusCode != 200) {
+        throw StateError(
+          "Could not update shift (${response.statusCode}): ${response.body}",
+        );
+      }
     } catch (e) {
       debugPrint("❌ Error updating shift: $e");
+      rethrow;
     }
   }
 

@@ -1,5 +1,6 @@
 import "package:flutter_test/flutter_test.dart";
 import "package:expense_shift_tracker/models/models.dart";
+import "package:expense_shift_tracker/services/database_service.dart";
 
 void main() {
   group("Model Tests", () {
@@ -59,6 +60,13 @@ void main() {
       expect(shift.grossAmount, 140.0);
       expect(shift.netAmount, 121.14);
       expect(shift.paymentStatus, "Pending");
+    });
+
+    test("DatabaseService creates a non-empty ID when creating a new record", () {
+      final id = DatabaseService.createRecordId("shift");
+
+      expect(id, isNotEmpty);
+      expect(id.startsWith("shift-"), isTrue);
     });
 
     test("MonthlyBudget model parses correctly", () {

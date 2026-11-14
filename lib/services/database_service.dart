@@ -1,3 +1,5 @@
+import "dart:math" as math;
+
 import "package:flutter/foundation.dart";
 import "package:path/path.dart";
 import "package:sqflite/sqflite.dart";
@@ -7,6 +9,18 @@ class DatabaseService {
   static Database? _database;
   static const String _dbName = "expense_tracker.db";
   static const int _dbVersion = 3;
+
+  static String createRecordId(String prefix) {
+    final stamp = DateTime.now().microsecondsSinceEpoch;
+    final random = math.Random().nextInt(1 << 31);
+    return "$prefix-$stamp-$random";
+  }
+
+  static String ensureRecordId(String? rawId, String prefix) {
+    final trimmed = (rawId ?? "").trim();
+    if (trimmed.isNotEmpty) return trimmed;
+    return createRecordId(prefix);
+  }
 
   // Singleton pattern
   DatabaseService._();
@@ -234,7 +248,8 @@ class DatabaseService {
   Future<void> insertExpense(Expense expense,
       {bool deductFromAccount = false}) async {
     final db = await database;
-    await db.insert('expenses', {'id': expense.id, ...expense.toJson()},
+    final recordId = ensureRecordId(expense.id, 'expense');
+    await db.insert('expenses', {'id': recordId, ...expense.toJson()},
         conflictAlgorithm: ConflictAlgorithm.replace);
 
     if (deductFromAccount) {
@@ -283,7 +298,8 @@ class DatabaseService {
 
   Future<void> insertShift(EarningShift shift) async {
     final db = await database;
-    await db.insert('shifts', {'id': shift.id, ...shift.toJson()},
+    final recordId = ensureRecordId(shift.id, 'shift');
+    await db.insert('shifts', {'id': recordId, ...shift.toJson()},
         conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
@@ -346,7 +362,8 @@ class DatabaseService {
 
   Future<void> insertFixedBill(FixedBill bill) async {
     final db = await database;
-    await db.insert('fixed_bills', {'id': bill.id, ...bill.toJson()},
+    final recordId = ensureRecordId(bill.id, 'bill');
+    await db.insert('fixed_bills', {'id': recordId, ...bill.toJson()},
         conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
@@ -402,7 +419,8 @@ class DatabaseService {
 
   Future<void> insertDebt(DebtItem debt) async {
     final db = await database;
-    await db.insert('debts', {'id': debt.id, ...debt.toJson()},
+    final recordId = ensureRecordId(debt.id, 'debt');
+    await db.insert('debts', {'id': recordId, ...debt.toJson()},
         conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
