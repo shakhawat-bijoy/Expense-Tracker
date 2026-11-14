@@ -75,8 +75,8 @@ class EarningsScreen extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     // Summary stats
-    final totalNet = (shifts.fold(0.0, (acc, s) => acc + s.netAmount) -
-            provider.budget.socialInsurance)
+    final totalIncome = shifts.fold(0.0, (acc, s) => acc + s.netAmount);
+    final afterInsuranceIncome = (totalIncome - provider.budget.socialInsurance)
         .clamp(0.0, double.infinity);
     final totalMinutes =
         shifts.fold(0, (acc, s) => acc + (s.hours * 60).round() + s.minutes);
@@ -124,9 +124,15 @@ class EarningsScreen extends StatelessWidget {
                 ),
                 Container(height: 36, width: 1, color: Colors.white24),
                 _EarningStat(
-                  label: "Net Earned",
-                  value: currency.format(totalNet),
+                  label: "Total Income",
+                  value: currency.format(totalIncome),
                   icon: Icons.payments_rounded,
+                ),
+                Container(height: 36, width: 1, color: Colors.white24),
+                _EarningStat(
+                  label: "After Insurance",
+                  value: currency.format(afterInsuranceIncome),
+                  icon: Icons.account_balance_wallet_rounded,
                 ),
               ],
             ),

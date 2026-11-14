@@ -62,7 +62,8 @@ void main() {
       expect(shift.paymentStatus, "Pending");
     });
 
-    test("DatabaseService creates a non-empty ID when creating a new record", () {
+    test("DatabaseService creates a non-empty ID when creating a new record",
+        () {
       final id = DatabaseService.createRecordId("shift");
 
       expect(id, isNotEmpty);
@@ -74,6 +75,7 @@ void main() {
         "_id": "6537f0000000000000000004",
         "month": "2026-10",
         "amount": 1500.0,
+        "socialInsurance": 75.0,
         "notes": "Target for Oct",
       };
 
@@ -81,6 +83,8 @@ void main() {
       expect(budget.id, "6537f0000000000000000004");
       expect(budget.month, "2026-10");
       expect(budget.amount, 1500.0);
+      expect(budget.socialInsurance, 75.0);
+      expect(budget.toJson()["socialInsurance"], 75.0);
       expect(budget.notes, "Target for Oct");
     });
 
@@ -96,7 +100,8 @@ void main() {
       expect(accounts.total, 2500.0);
     });
 
-    test("DebtItem calculates remaining amount and payoff percent correctly", () {
+    test("DebtItem calculates remaining amount and payoff percent correctly",
+        () {
       final json = {
         "_id": "6537f0000000000000000005",
         "title": "Car Loan",
