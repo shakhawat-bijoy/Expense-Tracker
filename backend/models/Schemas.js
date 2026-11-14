@@ -81,6 +81,7 @@ const FixedBillSchema = new mongoose.Schema({
 const BudgetSchema = new mongoose.Schema({
   month: { type: String, required: true, unique: true }, // e.g. "2026-10"
   amount: { type: Number, required: true, default: 0 },
+  socialInsurance: { type: Number, default: 0 },
   notes: { type: String, default: "" }
 }, { timestamps: true });
 

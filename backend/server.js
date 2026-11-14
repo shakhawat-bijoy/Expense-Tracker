@@ -552,7 +552,7 @@ app.get("/api/budget", async (req, res) => {
     const month = req.query.month || getMonthString(new Date());
     let budget = await Budget.findOne({ month });
     if (!budget) {
-      budget = { month, amount: 0, notes: "" };
+      budget = { month, amount: 0, socialInsurance: 0, notes: "" };
     }
     res.json(budget);
   } catch (err) {
@@ -562,12 +562,21 @@ app.get("/api/budget", async (req, res) => {
 
 app.post("/api/budget", async (req, res) => {
   try {
-    const { month, amount = 0, notes = "" } = req.body;
+    const {
+      month,
+      amount = 0,
+      socialInsurance = 0,
+      notes = ""
+    } = req.body;
     if (!month) return res.status(400).json({ error: "Month is required (YYYY-MM)" });
     
     const budget = await Budget.findOneAndUpdate(
       { month },
-      { amount: Number(amount), notes },
+      {
+        amount: Number(amount),
+        socialInsurance: Number(socialInsurance),
+        notes
+      },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
     res.json(budget);
