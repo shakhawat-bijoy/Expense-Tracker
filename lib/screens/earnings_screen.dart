@@ -444,7 +444,7 @@ class _AddShiftSheetState extends State<_AddShiftSheet> {
   void initState() {
     super.initState();
     final s = widget.shift;
-    _category = s?.category ?? "Delivery";
+    _category = s?.category ?? "";
     const defaultStart = TimeOfDay(hour: 10, minute: 0);
     const defaultFinish = TimeOfDay(hour: 18, minute: 0);
     _startTime = _timeFromMinutes(
@@ -459,13 +459,14 @@ class _AddShiftSheetState extends State<_AddShiftSheet> {
           ? defaultFinish
           : _parseTimelineTime(s.timeline, defaultFinish, true),
     );
-    _breakCtrl = TextEditingController(text: s?.breakMinutes.toString() ?? "0");
+    _breakCtrl = TextEditingController(
+        text: s != null ? s.breakMinutes.toString() : "");
     _grossCtrl =
         TextEditingController(text: s != null ? s.grossAmount.toString() : "");
     _rentCtrl = TextEditingController(
-        text: s != null ? s.rentDeduction.toString() : "0");
+        text: s != null ? s.rentDeduction.toString() : "");
     _taxCtrl =
-        TextEditingController(text: s != null ? s.taxPercent.toString() : "0");
+        TextEditingController(text: s != null ? s.taxPercent.toString() : "");
     _batchCtrl = TextEditingController(text: s?.payoutBatch ?? "General");
     _paymentStatus = s?.paymentStatus ?? "Pending";
     _depositTo = s?.depositTo ?? "Bank Account";
@@ -560,7 +561,8 @@ class _AddShiftSheetState extends State<_AddShiftSheet> {
             AddableDropdown(
               type: "shift_role",
               labelText: "Role / Job Category",
-              value: _category,
+              value: _category.isEmpty ? null : _category,
+              useFirstOptionWhenEmpty: false,
               prefixIcon: Icons.badge_outlined,
               addOptionLabel: "Add Shift Role",
               onChanged: (val) {
@@ -738,6 +740,12 @@ class _AddShiftSheetState extends State<_AddShiftSheet> {
             const SizedBox(height: 24),
             ElevatedButton(
               onPressed: () async {
+                if (_category.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Please select a role")),
+                  );
+                  return;
+                }
                 final gross = double.tryParse(
                         _grossCtrl.text.replaceAll(",", ".").trim()) ??
                     0.0;

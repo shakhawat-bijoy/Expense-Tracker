@@ -810,11 +810,11 @@ class DashboardScreen extends StatelessWidget {
           : defaultFinish,
     );
     final breakCtrl = TextEditingController(
-        text: isEditing ? shift.breakMinutes.toString() : "0");
+        text: isEditing ? shift.breakMinutes.toString() : "");
     final rentCtrl = TextEditingController(
-        text: isEditing ? shift.rentDeduction.toString() : "0");
+        text: isEditing ? shift.rentDeduction.toString() : "");
     final taxCtrl = TextEditingController(
-        text: isEditing ? shift.taxPercent.toString() : "0");
+        text: isEditing ? shift.taxPercent.toString() : "");
     final batchCtrl =
         TextEditingController(text: isEditing ? shift.payoutBatch : "General");
 
@@ -883,7 +883,8 @@ class DashboardScreen extends StatelessWidget {
                 AddableDropdown(
                   type: "shift_role",
                   labelText: "Role / Category",
-                  value: category,
+                  value: category.isEmpty ? null : category,
+                  useFirstOptionWhenEmpty: false,
                   prefixIcon: Icons.badge_outlined,
                   addOptionLabel: "Add Shift Role",
                   onChanged: (val) {
@@ -1089,6 +1090,12 @@ class DashboardScreen extends StatelessWidget {
                 const SizedBox(height: 20),
                 ElevatedButton(
                   onPressed: () async {
+                    if (category.isEmpty) {
+                      ScaffoldMessenger.of(ctx).showSnackBar(
+                        const SnackBar(content: Text("Please select a role")),
+                      );
+                      return;
+                    }
                     final gross = double.tryParse(
                         grossCtrl.text.replaceAll(",", ".").trim());
                     final breakMinutes =
@@ -1185,8 +1192,12 @@ class DashboardScreen extends StatelessWidget {
         return const Color(0xFFEC4899);
       case "Utility":
         return const Color(0xFF8B5CF6);
+      case "Snacks":
+        return const Color(0xFFF97316);
+      case "Other":
+        return const Color(0xFF64748B);
       default:
-        return const Color(0xFF6B7280);
+        return const Color(0xFF64748B);
     }
   }
 
@@ -1863,7 +1874,12 @@ class _DailySpendingChart extends StatelessWidget {
             );
           }).toList(),
         ),
-      ),
+      ).animate().fadeIn(duration: 450.ms).scaleY(
+            begin: 0.1,
+            end: 1,
+            duration: 900.ms,
+            curve: Curves.easeOutCubic,
+          ),
     );
   }
 }

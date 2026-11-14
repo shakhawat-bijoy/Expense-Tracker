@@ -9,6 +9,7 @@ class AppProvider with ChangeNotifier {
   List<EarningShift> _shifts = [];
   List<FixedBill> _fixedBills = [];
   List<DebtItem> _debts = [];
+  List<DebtItem> _allDebts = [];
   MonthlyBudget _budget = MonthlyBudget(month: "", amount: 0.0);
   AccountBalance _accounts = AccountBalance.initial();
   DashboardSummary _summary = DashboardSummary.initial();
@@ -98,10 +99,10 @@ class AppProvider with ChangeNotifier {
   double get bankBalance => _accounts.bank;
   double get totalLiquidFunds => _accounts.total;
 
-  double get totalDebtOwed => _debts
+  double get totalDebtOwed => _allDebts
       .where((d) => d.direction == "owed")
       .fold(0.0, (acc, d) => acc + d.amount);
-  double get totalDebtPaid => _debts
+  double get totalDebtPaid => _allDebts
       .where((d) => d.direction == "owed")
       .fold(0.0, (acc, d) => acc + d.paidAmount);
   double get remainingDebtOwed =>
@@ -230,7 +231,7 @@ class AppProvider with ChangeNotifier {
 
   Color categoryColor(String category) {
     if (category.toLowerCase() == "snacks") {
-      return const Color(0xFFFACC15);
+      return const Color(0xFFF97316);
     }
     final value = _categoryColors[category];
     if (value != null) return Color(value);
@@ -241,9 +242,10 @@ class AppProvider with ChangeNotifier {
       "Restaurant": 0xFFEF4444,
       "Health": 0xFFEC4899,
       "Utility": 0xFF8B5CF6,
-      "Snacks": 0xFFFACC15,
+      "Snacks": 0xFFF97316,
+      "Other": 0xFF64748B,
     };
-    return Color(builtIn[category] ?? 0xFF6B7280);
+    return Color(builtIn[category] ?? 0xFF64748B);
   }
 
   Future<void> addDropdownOption(String type, String newOption,
@@ -391,6 +393,7 @@ class AppProvider with ChangeNotifier {
         MongoService.getSummary(month: _selectedMonth),
         MongoService.getAccounts(),
         MongoService.getDebts(month: _selectedMonth),
+        MongoService.getDebts(),
       ]);
 
       _expenses = (results[0] as List<Expense>)
@@ -402,6 +405,7 @@ class AppProvider with ChangeNotifier {
       _summary = results[4] as DashboardSummary;
       _accounts = results[5] as AccountBalance;
       _debts = results[6] as List<DebtItem>;
+      _allDebts = results[7] as List<DebtItem>;
 
       await loadCustomOptions();
     } catch (e) {

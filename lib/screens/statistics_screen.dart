@@ -94,6 +94,25 @@ class StatisticsScreen extends StatelessWidget {
           ],
         ).animate().fadeIn(delay: 100.ms),
 
+          const SizedBox(height: 16),
+
+          Row(
+            children: [
+              Expanded(
+                child: _StatOverviewCard(
+                  title: "Total Debt",
+                  value: currency.format(provider.totalDebtOwed),
+                  subtitle:
+                      "${currency.format(provider.totalDebtPaid)} repaid · "
+                      "${currency.format(provider.remainingDebtOwed)} remaining",
+                  icon: Icons.account_balance_wallet_rounded,
+                  color: const Color(0xFF8B5CF6),
+                  isDark: isDark,
+                ),
+              ),
+            ],
+          ).animate().fadeIn(delay: 200.ms),
+
         const SizedBox(height: 24),
 
         // ─── Pie Chart ──────────────────────────────────────────────
@@ -426,7 +445,9 @@ class StatisticsScreen extends StatelessWidget {
         value: entry.value,
         color: _getCategoryColor(entry.key),
         radius: 35,
-        title: pct >= 8 ? "${pct.toStringAsFixed(0)}%" : "",
+        title: pct >= 8 || entry.key == "Other"
+            ? "${pct.toStringAsFixed(0)}%"
+            : "",
         titleStyle: const TextStyle(
           color: Colors.white,
           fontWeight: FontWeight.bold,
@@ -450,8 +471,12 @@ class StatisticsScreen extends StatelessWidget {
         return const Color(0xFFEC4899);
       case "Utility":
         return const Color(0xFF8B5CF6);
+      case "Snacks":
+        return const Color(0xFFF97316);
+      case "Other":
+        return const Color(0xFF64748B);
       default:
-        return const Color(0xFF6B7280);
+        return const Color(0xFF64748B);
     }
   }
 }

@@ -11,6 +11,7 @@ class AddableDropdown extends StatelessWidget {
   final IconData? prefixIcon;
   final String addOptionLabel;
   final bool allowColor;
+  final bool useFirstOptionWhenEmpty;
 
   const AddableDropdown({
     super.key,
@@ -21,6 +22,7 @@ class AddableDropdown extends StatelessWidget {
     this.prefixIcon,
     this.addOptionLabel = "Add Custom Option",
     this.allowColor = false,
+    this.useFirstOptionWhenEmpty = true,
   });
 
   @override
@@ -32,7 +34,7 @@ class AddableDropdown extends StatelessWidget {
     // Ensure value is either in options or null
     final currentValue = (value != null && options.contains(value))
         ? value
-        : (options.isNotEmpty ? options.first : null);
+        : (useFirstOptionWhenEmpty && options.isNotEmpty ? options.first : null);
 
     return InkWell(
       onTap: () => _showOptionsSheet(context, provider, options, currentValue),
