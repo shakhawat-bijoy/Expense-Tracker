@@ -6,7 +6,7 @@ import "../models/models.dart";
 class DatabaseService {
   static Database? _database;
   static const String _dbName = "expense_tracker.db";
-  static const int _dbVersion = 2;
+  static const int _dbVersion = 3;
 
   // Singleton pattern
   DatabaseService._();
@@ -54,6 +54,10 @@ class DatabaseService {
         category TEXT NOT NULL,
         timeline TEXT NOT NULL,
         hours REAL NOT NULL,
+        minutes INTEGER NOT NULL DEFAULT 0,
+        startMinutes INTEGER,
+        finishMinutes INTEGER,
+        breakMinutes INTEGER NOT NULL DEFAULT 0,
         grossAmount REAL NOT NULL,
         rentDeduction REAL NOT NULL DEFAULT 0,
         taxPercent REAL NOT NULL DEFAULT 0,
@@ -176,10 +180,34 @@ class DatabaseService {
     }
   }
 
+  Future<void> _ensureShiftColumns(Database db) async {
+    final columns = await db.rawQuery('PRAGMA table_info(shifts)');
+    final existing = columns.map((row) => row['name'].toString()).toSet();
+
+    final missingColumns = {
+      'minutes': 'INTEGER NOT NULL DEFAULT 0',
+      'startMinutes': 'INTEGER',
+      'finishMinutes': 'INTEGER',
+      'breakMinutes': 'INTEGER NOT NULL DEFAULT 0',
+    };
+
+    for (final entry in missingColumns.entries) {
+      if (!existing.contains(entry.key)) {
+        await db.execute(
+          'ALTER TABLE shifts ADD COLUMN ${entry.key} ${entry.value}',
+        );
+      }
+    }
+  }
+
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) {
       // The schema is compatible with version 1; version 2 aligns persisted
       // rows with the current model fields.
+    }
+
+    if (oldVersion < 3) {
+      await _ensureShiftColumns(db);
     }
   }
 
@@ -194,10 +222,10 @@ class DatabaseService {
         'expenses',
         where: 'month = ?',
         whereArgs: [month],
-        orderBy: 'date DESC',
+        orderBy: 'datetime(date) DESC',
       );
     } else {
-      maps = await db.query('expenses', orderBy: 'date DESC');
+      maps = await db.query('expenses', orderBy: 'datetime(date) DESC');
     }
 
     return maps.map((map) => Expense.fromJson(map)).toList();
@@ -244,10 +272,10 @@ class DatabaseService {
         'shifts',
         where: 'month = ?',
         whereArgs: [month],
-        orderBy: 'date DESC',
+        orderBy: 'datetime(date) DESC',
       );
     } else {
-      maps = await db.query('shifts', orderBy: 'date DESC');
+      maps = await db.query('shifts', orderBy: 'datetime(date) DESC');
     }
 
     return maps.map((map) => EarningShift.fromJson(map)).toList();

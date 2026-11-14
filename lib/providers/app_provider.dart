@@ -393,8 +393,10 @@ class AppProvider with ChangeNotifier {
         MongoService.getDebts(month: _selectedMonth),
       ]);
 
-      _expenses = results[0] as List<Expense>;
-      _shifts = results[1] as List<EarningShift>;
+      _expenses = (results[0] as List<Expense>)
+        ..sort((a, b) => b.date.compareTo(a.date));
+      _shifts = (results[1] as List<EarningShift>)
+        ..sort((a, b) => b.date.compareTo(a.date));
       _fixedBills = results[2] as List<FixedBill>;
       _budget = results[3] as MonthlyBudget;
       _summary = results[4] as DashboardSummary;
