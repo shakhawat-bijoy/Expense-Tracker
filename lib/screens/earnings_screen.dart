@@ -37,6 +37,31 @@ String _format12Hour(BuildContext context, TimeOfDay time) =>
     MaterialLocalizations.of(context)
         .formatTimeOfDay(time, alwaysUse24HourFormat: false);
 
+String _formatShiftDuration(EarningShift shift) {
+  final totalMinutes = (shift.hours * 60).round() + shift.minutes;
+  return "${totalMinutes ~/ 60}h ${totalMinutes % 60}m";
+}
+
+String _formatShiftTimeline(BuildContext context, EarningShift shift) {
+  final start = _timeFromMinutes(
+    shift.startMinutes,
+    _parseTimelineTime(
+      shift.timeline,
+      const TimeOfDay(hour: 10, minute: 0),
+      false,
+    ),
+  );
+  final finish = _timeFromMinutes(
+    shift.finishMinutes,
+    _parseTimelineTime(
+      shift.timeline,
+      const TimeOfDay(hour: 18, minute: 0),
+      true,
+    ),
+  );
+  return "${_format12Hour(context, start)} - ${_format12Hour(context, finish)}";
+}
+
 class EarningsScreen extends StatelessWidget {
   const EarningsScreen({super.key});
 
@@ -50,7 +75,9 @@ class EarningsScreen extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     // Summary stats
-    final totalNet = shifts.fold(0.0, (acc, s) => acc + s.netAmount);
+    final totalNet = (shifts.fold(0.0, (acc, s) => acc + s.netAmount) -
+            provider.budget.socialInsurance)
+        .clamp(0.0, double.infinity);
     final totalMinutes =
         shifts.fold(0, (acc, s) => acc + (s.hours * 60).round() + s.minutes);
 
@@ -104,6 +131,14 @@ class EarningsScreen extends StatelessWidget {
               ],
             ),
           ).animate().fadeIn(duration: 350.ms),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: _MonthlyInsuranceSummary(
+              amount: provider.budget.socialInsurance,
+              currency: currency,
+              onEdit: () => _showMonthlyInsuranceDialog(context),
+            ),
+          ),
 
           // ─── Shifts List or Empty State ───────────────────────────────
           Expanded(
@@ -280,22 +315,16 @@ class EarningsScreen extends StatelessWidget {
                                     children: [
                                       _ShiftDetail(
                                         label: "Timeline",
-                                        value: shift.timeline,
+                                        value: _formatShiftTimeline(
+                                            context, shift),
                                       ),
                                       _ShiftDetail(
                                         label: "Hours",
-                                        value: shift.minutes > 0
-                                            ? "${shift.hours}h ${shift.minutes}m"
-                                            : "${shift.hours}h",
+                                        value: _formatShiftDuration(shift),
                                       ),
                                       _ShiftDetail(
                                         label: "Break",
                                         value: "${shift.breakMinutes}m",
-                                      ),
-                                      _ShiftDetail(
-                                        label: "Gross",
-                                        value:
-                                            currency.format(shift.grossAmount),
                                       ),
                                       _ShiftDetail(
                                         label: "Net",
@@ -337,6 +366,108 @@ class EarningsScreen extends StatelessWidget {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (_) => _AddShiftSheet(shift: shift),
+    );
+  }
+
+  void _showMonthlyInsuranceDialog(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (_) => const _MonthlyInsuranceDialog(),
+    );
+  }
+}
+
+class _MonthlyInsuranceDialog extends StatefulWidget {
+  const _MonthlyInsuranceDialog();
+
+  @override
+  State<_MonthlyInsuranceDialog> createState() =>
+      _MonthlyInsuranceDialogState();
+}
+
+class _MonthlyInsuranceDialogState extends State<_MonthlyInsuranceDialog> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    final amount = context.read<AppProvider>().budget.socialInsurance;
+    _controller = TextEditingController(
+      text: amount == 0 ? "" : amount.toStringAsFixed(2),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final amount =
+        double.tryParse(_controller.text.replaceAll(",", ".").trim()) ?? 0.0;
+    if (amount < 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Social insurance cannot be negative")),
+      );
+      return;
+    }
+
+    await context.read<AppProvider>().saveSocialInsurance(amount);
+    if (mounted) Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text("Monthly Social Insurance"),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        decoration: const InputDecoration(
+          labelText: "Insurance amount (€)",
+          prefixIcon: Icon(Icons.health_and_safety_outlined),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text("Cancel"),
+        ),
+        FilledButton(
+          onPressed: _save,
+          child: const Text("Save"),
+        ),
+      ],
+    );
+  }
+}
+
+class _MonthlyInsuranceSummary extends StatelessWidget {
+  final double amount;
+  final NumberFormat currency;
+  final VoidCallback onEdit;
+
+  const _MonthlyInsuranceSummary({
+    required this.amount,
+    required this.currency,
+    required this.onEdit,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: EdgeInsets.zero,
+      child: ListTile(
+        leading: const Icon(Icons.health_and_safety_outlined),
+        title: const Text("Monthly social insurance"),
+        subtitle: Text("${currency.format(amount)} deducted from total income"),
+        trailing: TextButton(
+          onPressed: onEdit,
+          child: const Text("Set amount"),
+        ),
+      ),
     );
   }
 }
@@ -459,8 +590,8 @@ class _AddShiftSheetState extends State<_AddShiftSheet> {
           ? defaultFinish
           : _parseTimelineTime(s.timeline, defaultFinish, true),
     );
-    _breakCtrl = TextEditingController(
-        text: s != null ? s.breakMinutes.toString() : "");
+    _breakCtrl =
+        TextEditingController(text: s != null ? s.breakMinutes.toString() : "");
     _grossCtrl =
         TextEditingController(text: s != null ? s.grossAmount.toString() : "");
     _rentCtrl = TextEditingController(
@@ -766,7 +897,6 @@ class _AddShiftSheetState extends State<_AddShiftSheet> {
                 final tax = double.tryParse(
                         _taxCtrl.text.replaceAll(",", ".").trim()) ??
                     0.0;
-
                 final base = (gross - rent).clamp(0.0, double.infinity);
                 final net = base * (1 - (tax / 100));
 

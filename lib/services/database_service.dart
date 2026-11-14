@@ -8,7 +8,7 @@ import "../models/models.dart";
 class DatabaseService {
   static Database? _database;
   static const String _dbName = "expense_tracker.db";
-  static const int _dbVersion = 3;
+  static const int _dbVersion = 4;
 
   static String createRecordId(String prefix) {
     final stamp = DateTime.now().microsecondsSinceEpoch;
@@ -116,6 +116,7 @@ class DatabaseService {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         month TEXT UNIQUE NOT NULL,
         amount REAL NOT NULL,
+        socialInsurance REAL NOT NULL DEFAULT 0,
         notes TEXT
       )
     ''');
@@ -212,6 +213,14 @@ class DatabaseService {
         );
       }
     }
+    final budgetColumns = await db.rawQuery('PRAGMA table_info(budget)');
+    final budgetColumnNames =
+        budgetColumns.map((row) => row['name'].toString()).toSet();
+    if (!budgetColumnNames.contains('socialInsurance')) {
+      await db.execute(
+        'ALTER TABLE budget ADD COLUMN socialInsurance REAL NOT NULL DEFAULT 0',
+      );
+    }
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
@@ -220,7 +229,7 @@ class DatabaseService {
       // rows with the current model fields.
     }
 
-    if (oldVersion < 3) {
+    if (oldVersion < 4) {
       await _ensureShiftColumns(db);
     }
   }
@@ -323,8 +332,7 @@ class DatabaseService {
     final shifts = await db.query('shifts', where: 'id = ?', whereArgs: [id]);
     if (shifts.isNotEmpty) {
       final shift = EarningShift.fromJson(shifts.first);
-      final newStatus =
-          shift.paymentStatus == 'Pending' ? 'Paid' : 'Pending';
+      final newStatus = shift.paymentStatus == 'Pending' ? 'Paid' : 'Pending';
       await db.update(
         'shifts',
         {'paymentStatus': newStatus},

@@ -535,9 +535,22 @@ class AppProvider with ChangeNotifier {
     final b = MonthlyBudget(
       month: _selectedMonth,
       amount: amount,
+      socialInsurance: _budget.socialInsurance,
       notes: notes,
     );
     await MongoService.setBudget(b);
+    await fetchAllData();
+  }
+
+  Future<void> saveSocialInsurance(double amount) async {
+    final budget = MonthlyBudget(
+      id: _budget.id,
+      month: _selectedMonth,
+      amount: _budget.amount,
+      socialInsurance: amount,
+      notes: _budget.notes,
+    );
+    await MongoService.setBudget(budget);
     await fetchAllData();
   }
 

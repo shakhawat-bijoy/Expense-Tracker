@@ -255,12 +255,14 @@ class MonthlyBudget {
   final String id;
   final String month;
   final double amount;
+  final double socialInsurance;
   final String notes;
 
   MonthlyBudget({
     this.id = "",
     required this.month,
     required this.amount,
+    this.socialInsurance = 0.0,
     this.notes = "",
   });
 
@@ -268,12 +270,14 @@ class MonthlyBudget {
         id: json["_id"] ?? json["id"] ?? "",
         month: json["month"] ?? "",
         amount: (json["amount"] as num?)?.toDouble() ?? 0.0,
+        socialInsurance: (json["socialInsurance"] as num?)?.toDouble() ?? 0.0,
         notes: json["notes"] ?? "",
       );
 
   Map<String, dynamic> toJson() => {
         "month": month,
         "amount": amount,
+        "socialInsurance": socialInsurance,
         "notes": notes,
       };
 }
