@@ -192,7 +192,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
     "Dashboard",
     "Shift Earnings",
     "Daily Expenses",
-    "People & Money",
+    "People & Debts",
     "Recurring Bills",
     "Statistics",
   ];
@@ -361,7 +361,7 @@ class _MobileBottomNavigation extends StatelessWidget {
     (Icons.dashboard_outlined, Icons.dashboard_rounded, "Home"),
     (Icons.work_outline_rounded, Icons.work_rounded, "Shifts"),
     (Icons.receipt_long_outlined, Icons.receipt_long_rounded, "Expenses"),
-    (Icons.people_alt_outlined, Icons.people_alt_rounded, "People & Money"),
+    (Icons.people_alt_outlined, Icons.people_alt_rounded, "People & Debts"),
     (Icons.calendar_today_outlined, Icons.calendar_today_rounded, "Bills"),
     (Icons.analytics_outlined, Icons.analytics_rounded, "Stats"),
   ];

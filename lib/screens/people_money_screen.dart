@@ -15,8 +15,10 @@ class PeopleMoneyScreen extends StatefulWidget {
 
 class _PeopleMoneyScreenState extends State<PeopleMoneyScreen> {
   static const _relationships = ["Family", "Sister", "Friend", "Other"];
+  static const _allMonths = "all";
   final _currency =
       NumberFormat.currency(locale: "en_IN", symbol: "৳", decimalDigits: 2);
+  String _selectedMonth = _allMonths;
 
   @override
   void initState() {
@@ -28,10 +30,25 @@ class _PeopleMoneyScreenState extends State<PeopleMoneyScreen> {
   Widget build(BuildContext context) {
     final provider = context.watch<AppProvider>();
     final entries = provider.peopleMoneyEntries;
-    final given = entries
+    final monthOptions = entries
+        .map((entry) => DateFormat("yyyy-MM").format(entry.date))
+        .toSet()
+        .toList()
+      ..sort((a, b) => b.compareTo(a));
+    final selectedMonth =
+        monthOptions.contains(_selectedMonth) || _selectedMonth == _allMonths
+            ? _selectedMonth
+            : _allMonths;
+    final filteredEntries = selectedMonth == _allMonths
+        ? entries
+        : entries
+            .where((entry) =>
+                DateFormat("yyyy-MM").format(entry.date) == selectedMonth)
+            .toList();
+    final given = filteredEntries
         .where((entry) => entry.direction == "given")
         .fold<double>(0, (sum, entry) => sum + entry.amount);
-    final taken = entries
+    final taken = filteredEntries
         .where((entry) => entry.direction == "taken")
         .fold<double>(0, (sum, entry) => sum + entry.amount);
 
@@ -57,6 +74,34 @@ class _PeopleMoneyScreenState extends State<PeopleMoneyScreen> {
                       fontSize: 12,
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
+                  ),
+                  const SizedBox(height: 14),
+                  DropdownButtonFormField<String>(
+                    initialValue: selectedMonth,
+                    decoration: const InputDecoration(
+                      labelText: "Month",
+                      prefixIcon: Icon(Icons.calendar_month_rounded),
+                      isDense: true,
+                    ),
+                    items: [
+                      const DropdownMenuItem(
+                        value: _allMonths,
+                        child: Text("All months"),
+                      ),
+                      for (final month in monthOptions)
+                        DropdownMenuItem(
+                          value: month,
+                          child: Text(
+                            DateFormat("MMMM yyyy")
+                                .format(DateTime.parse("$month-01")),
+                          ),
+                        ),
+                    ],
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() => _selectedMonth = value);
+                      }
+                    },
                   ),
                   const SizedBox(height: 14),
                   Row(
@@ -99,14 +144,14 @@ class _PeopleMoneyScreenState extends State<PeopleMoneyScreen> {
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
                                 Text(
-                                  "Given: ${_currency.format(_relationshipTotal(entries, relationship, "given"))}",
+                                  "Given: ${_currency.format(_relationshipTotal(filteredEntries, relationship, "given"))}",
                                   style: const TextStyle(
                                     color: Color(0xFF10B981),
                                     fontSize: 12,
                                   ),
                                 ),
                                 Text(
-                                  "Taken: ${_currency.format(_relationshipTotal(entries, relationship, "taken"))}",
+                                  "Taken: ${_currency.format(_relationshipTotal(filteredEntries, relationship, "taken"))}",
                                   style: const TextStyle(
                                     color: Color(0xFF6366F1),
                                     fontSize: 12,
@@ -145,7 +190,7 @@ class _PeopleMoneyScreenState extends State<PeopleMoneyScreen> {
               ),
             ),
             Expanded(
-              child: _buildHistory(context, provider),
+              child: _buildHistory(context, provider, filteredEntries),
             ),
           ],
         ),
@@ -169,7 +214,11 @@ class _PeopleMoneyScreenState extends State<PeopleMoneyScreen> {
               entry.direction == direction)
           .fold<double>(0, (sum, entry) => sum + entry.amount);
 
-  Widget _buildHistory(BuildContext context, AppProvider provider) {
+  Widget _buildHistory(
+    BuildContext context,
+    AppProvider provider,
+    List<PeopleMoneyEntry> entries,
+  ) {
     if (provider.isPeopleMoneyLoading && provider.peopleMoneyEntries.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -231,12 +280,21 @@ class _PeopleMoneyScreenState extends State<PeopleMoneyScreen> {
       );
     }
 
+    if (entries.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: Text("No entries for this month."),
+        ),
+      );
+    }
+
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
-      itemCount: provider.peopleMoneyEntries.length,
+      itemCount: entries.length,
       separatorBuilder: (_, __) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
-        final entry = provider.peopleMoneyEntries[index];
+        final entry = entries[index];
         final isGiven = entry.direction == "given";
         final color =
             isGiven ? const Color(0xFF10B981) : const Color(0xFF6366F1);
