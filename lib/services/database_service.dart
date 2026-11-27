@@ -1,3 +1,4 @@
+import "dart:convert";
 import "dart:math" as math;
 
 import "package:flutter/foundation.dart";
@@ -7,8 +8,14 @@ import "../models/models.dart";
 
 class DatabaseService {
   static Database? _database;
+  static String? _databasePathOverride;
   static const String _dbName = "expense_tracker.db";
-  static const int _dbVersion = 4;
+  static const int _dbVersion = 6;
+
+  @visibleForTesting
+  static void setDatabasePathForTesting(String? path) {
+    _databasePathOverride = path;
+  }
 
   static String createRecordId(String prefix) {
     final stamp = DateTime.now().microsecondsSinceEpoch;
@@ -34,7 +41,7 @@ class DatabaseService {
 
   Future<Database> _initDatabase() async {
     final dbPath = await getDatabasesPath();
-    final path = join(dbPath, _dbName);
+    final path = _databasePathOverride ?? join(dbPath, _dbName);
 
     return await openDatabase(
       path,
@@ -55,7 +62,8 @@ class DatabaseService {
         paymentMethod TEXT NOT NULL,
         date TEXT NOT NULL,
         notes TEXT,
-        month TEXT NOT NULL
+        month TEXT NOT NULL,
+        accountDeductedFrom TEXT
       )
     ''');
 
@@ -106,7 +114,8 @@ class DatabaseService {
         category TEXT NOT NULL DEFAULT 'Personal',
         status TEXT NOT NULL DEFAULT 'Pending',
         notes TEXT,
-        month TEXT NOT NULL
+        month TEXT NOT NULL,
+        direction TEXT NOT NULL DEFAULT 'owed'
       )
     ''');
 
@@ -140,9 +149,12 @@ class DatabaseService {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         type TEXT NOT NULL,
         name TEXT NOT NULL,
+        colorValue INTEGER,
         UNIQUE(type, name)
       )
     ''');
+
+    await _createOfflineSyncTables(db);
 
     // Insert default options
     await _insertDefaultOptions(db);
@@ -225,6 +237,143 @@ class DatabaseService {
       await _ensureShiftColumns(db);
       await _ensureBudgetSocialInsuranceColumn(db);
     }
+
+    if (oldVersion < 5) {
+      await _ensureCustomOptionColorColumn(db);
+      await _createOfflineSyncTables(db);
+    }
+
+    if (oldVersion < 6) {
+      await _ensureExpenseAccountColumn(db);
+      await _ensureDebtDirectionColumn(db);
+    }
+  }
+
+  Future<void> _ensureExpenseAccountColumn(Database db) async {
+    final columns = await db.rawQuery('PRAGMA table_info(expenses)');
+    final names = columns.map((row) => row['name'].toString()).toSet();
+    if (!names.contains('accountDeductedFrom')) {
+      await db
+          .execute('ALTER TABLE expenses ADD COLUMN accountDeductedFrom TEXT');
+    }
+  }
+
+  Future<void> _ensureDebtDirectionColumn(Database db) async {
+    final columns = await db.rawQuery('PRAGMA table_info(debts)');
+    final names = columns.map((row) => row['name'].toString()).toSet();
+    if (!names.contains('direction')) {
+      await db.execute(
+        "ALTER TABLE debts ADD COLUMN direction TEXT NOT NULL DEFAULT 'owed'",
+      );
+    }
+  }
+
+  Future<void> _createOfflineSyncTables(DatabaseExecutor db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS people_money_entries (
+        id TEXT PRIMARY KEY,
+        personName TEXT NOT NULL,
+        relationship TEXT NOT NULL,
+        direction TEXT NOT NULL,
+        amount REAL NOT NULL,
+        date TEXT NOT NULL,
+        notes TEXT NOT NULL DEFAULT ''
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS sync_queue (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        entity TEXT NOT NULL,
+        recordId TEXT NOT NULL,
+        remoteId TEXT,
+        operation TEXT NOT NULL,
+        payload TEXT,
+        UNIQUE(entity, recordId)
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS sync_id_map (
+        entity TEXT NOT NULL,
+        localId TEXT NOT NULL,
+        remoteId TEXT NOT NULL,
+        PRIMARY KEY(entity, localId),
+        UNIQUE(entity, remoteId)
+      )
+    ''');
+  }
+
+  Future<void> _ensureCustomOptionColorColumn(Database db) async {
+    final columns = await db.rawQuery('PRAGMA table_info(custom_options)');
+    final names = columns.map((row) => row['name'].toString()).toSet();
+    if (!names.contains('colorValue')) {
+      await db
+          .execute('ALTER TABLE custom_options ADD COLUMN colorValue INTEGER');
+    }
+  }
+
+  Future<void> _queueSync(
+    DatabaseExecutor db, {
+    required String entity,
+    required String recordId,
+    required String operation,
+    Map<String, dynamic>? payload,
+  }) async {
+    final mappings = await db.query(
+      'sync_id_map',
+      columns: ['remoteId'],
+      where: 'entity = ? AND localId = ?',
+      whereArgs: [entity, recordId],
+      limit: 1,
+    );
+    final pending = await db.query(
+      'sync_queue',
+      columns: ['remoteId'],
+      where: 'entity = ? AND recordId = ?',
+      whereArgs: [entity, recordId],
+      limit: 1,
+    );
+    final remoteId = mappings.isNotEmpty
+        ? mappings.first['remoteId']?.toString()
+        : pending.isNotEmpty
+            ? pending.first['remoteId']?.toString()
+            : null;
+    await db.insert(
+      'sync_queue',
+      {
+        'entity': entity,
+        'recordId': recordId,
+        'remoteId': remoteId,
+        'operation': operation,
+        'payload': payload == null ? null : jsonEncode(payload),
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<void> _adjustAccountInTransaction(
+    DatabaseExecutor db, {
+    required String accountType,
+    required double amount,
+    required String operation,
+  }) async {
+    if (accountType != 'pocket' && accountType != 'bank') return;
+    final accounts = await db.query('accounts', where: 'id = 1', limit: 1);
+    final balance = accounts.isEmpty
+        ? AccountBalance.initial()
+        : AccountBalance.fromJson(accounts.first);
+    final delta = operation == 'deduct' ? -amount.abs() : amount.abs();
+    final updated = accountType == 'pocket'
+        ? balance.copyWith(
+            pocket: (balance.pocket + delta).clamp(0.0, double.infinity))
+        : balance.copyWith(
+            bank: (balance.bank + delta).clamp(0.0, double.infinity));
+    final payload = updated.toJson();
+    await db.update('accounts', payload, where: 'id = 1');
+    await _queueSync(db,
+        entity: 'accounts',
+        recordId: '1',
+        operation: 'upsert',
+        payload: payload);
   }
 
   // ─── Expenses ─────────────────────────────────────────────────────────────
@@ -251,31 +400,93 @@ class DatabaseService {
       {bool deductFromAccount = false}) async {
     final db = await database;
     final recordId = ensureRecordId(expense.id, 'expense');
-    await db.insert('expenses', {'id': recordId, ...expense.toJson()},
-        conflictAlgorithm: ConflictAlgorithm.replace);
-
-    if (deductFromAccount) {
-      final accountType = expense.paymentMethod.toLowerCase().contains('bank')
-          ? 'bank'
-          : 'pocket';
-      await adjustAccount(
-          accountType: accountType, amount: expense.price, operation: 'deduct');
-    }
+    final paymentMethod = expense.paymentMethod.toLowerCase();
+    final deductedFrom = deductFromAccount
+        ? paymentMethod.contains('bank') || paymentMethod.contains('debit')
+            ? 'bank'
+            : 'pocket'
+        : expense.accountDeductedFrom;
+    final stored = expense.copyWith(
+      id: recordId,
+      accountDeductedFrom: deductedFrom,
+    );
+    await db.transaction((txn) async {
+      await txn.insert('expenses', {'id': recordId, ...stored.toJson()},
+          conflictAlgorithm: ConflictAlgorithm.replace);
+      await _queueSync(txn,
+          entity: 'expenses',
+          recordId: recordId,
+          operation: 'upsert',
+          payload: stored.toJson());
+      if (deductFromAccount && deductedFrom != null) {
+        await _adjustAccountInTransaction(
+          txn,
+          accountType: deductedFrom,
+          amount: expense.price,
+          operation: 'deduct',
+        );
+      }
+    });
   }
 
-  Future<void> updateExpense(Expense expense) async {
+  Future<void> updateExpense(Expense expense,
+      {bool updateAccountBalance = true}) async {
     final db = await database;
-    await db.update(
-      'expenses',
-      expense.toJson(),
-      where: 'id = ?',
-      whereArgs: [expense.id],
-    );
+    await db.transaction((txn) async {
+      final existingRows = await txn.query(
+        'expenses',
+        where: 'id = ?',
+        whereArgs: [expense.id],
+        limit: 1,
+      );
+      final existing =
+          existingRows.isEmpty ? null : Expense.fromJson(existingRows.first);
+      final updated = expense.copyWith(
+        accountDeductedFrom:
+            expense.accountDeductedFrom ?? existing?.accountDeductedFrom,
+      );
+      await txn.update(
+        'expenses',
+        updated.toJson(),
+        where: 'id = ?',
+        whereArgs: [expense.id],
+      );
+      await _queueSync(txn,
+          entity: 'expenses',
+          recordId: updated.id,
+          operation: 'upsert',
+          payload: updated.toJson());
+      if (updateAccountBalance) {
+        final previousAccount = existing?.accountDeductedFrom;
+        if (existing != null &&
+            (previousAccount == 'pocket' || previousAccount == 'bank')) {
+          await _adjustAccountInTransaction(
+            txn,
+            accountType: previousAccount!,
+            amount: existing.price,
+            operation: 'add',
+          );
+        }
+        final nextAccount = updated.accountDeductedFrom;
+        if (nextAccount == 'pocket' || nextAccount == 'bank') {
+          await _adjustAccountInTransaction(
+            txn,
+            accountType: nextAccount!,
+            amount: updated.price,
+            operation: 'deduct',
+          );
+        }
+      }
+    });
   }
 
   Future<void> deleteExpense(String id) async {
     final db = await database;
-    await db.delete('expenses', where: 'id = ?', whereArgs: [id]);
+    await db.transaction((txn) async {
+      await _queueSync(txn,
+          entity: 'expenses', recordId: id, operation: 'delete');
+      await txn.delete('expenses', where: 'id = ?', whereArgs: [id]);
+    });
   }
 
   // ─── Shifts ───────────────────────────────────────────────────────────────
@@ -301,44 +512,73 @@ class DatabaseService {
   Future<void> insertShift(EarningShift shift) async {
     final db = await database;
     final recordId = ensureRecordId(shift.id, 'shift');
-    await db.insert('shifts', {'id': recordId, ...shift.toJson()},
-        conflictAlgorithm: ConflictAlgorithm.replace);
+    final stored = shift.copyWith(id: recordId);
+    await db.transaction((txn) async {
+      await txn.insert('shifts', {'id': recordId, ...stored.toJson()},
+          conflictAlgorithm: ConflictAlgorithm.replace);
+      await _queueSync(txn,
+          entity: 'shifts',
+          recordId: recordId,
+          operation: 'upsert',
+          payload: stored.toJson());
+    });
   }
 
   Future<void> updateShift(EarningShift shift) async {
     final db = await database;
-    await db.update(
-      'shifts',
-      shift.toJson(),
-      where: 'id = ?',
-      whereArgs: [shift.id],
-    );
+    await db.transaction((txn) async {
+      await txn.update(
+        'shifts',
+        shift.toJson(),
+        where: 'id = ?',
+        whereArgs: [shift.id],
+      );
+      await _queueSync(txn,
+          entity: 'shifts',
+          recordId: shift.id,
+          operation: 'upsert',
+          payload: shift.toJson());
+    });
   }
 
   Future<void> deleteShift(String id) async {
     final db = await database;
-    await db.delete('shifts', where: 'id = ?', whereArgs: [id]);
+    await db.transaction((txn) async {
+      await _queueSync(txn,
+          entity: 'shifts', recordId: id, operation: 'delete');
+      await txn.delete('shifts', where: 'id = ?', whereArgs: [id]);
+    });
   }
 
   Future<void> toggleShiftStatus(String id) async {
     final db = await database;
-    final shifts = await db.query('shifts', where: 'id = ?', whereArgs: [id]);
-    if (shifts.isNotEmpty) {
+    await db.transaction((txn) async {
+      final shifts =
+          await txn.query('shifts', where: 'id = ?', whereArgs: [id], limit: 1);
+      if (shifts.isEmpty) return;
       final shift = EarningShift.fromJson(shifts.first);
-      final newStatus = shift.paymentStatus == 'Pending' ? 'Paid' : 'Pending';
-      await db.update(
+      final newStatus =
+          shift.paymentStatus == 'Pending' ? 'Received' : 'Pending';
+      await txn.update(
         'shifts',
         {'paymentStatus': newStatus},
         where: 'id = ?',
         whereArgs: [id],
       );
+      final updatedShift = shift.copyWith(paymentStatus: newStatus);
+      await _queueSync(txn,
+          entity: 'shifts',
+          recordId: id,
+          operation: 'upsert',
+          payload: updatedShift.toJson());
 
-      // If marking as paid, add to account
-      if (newStatus == 'Paid') {
-        await adjustAccount(
-            accountType: 'bank', amount: shift.netAmount, operation: 'add');
+      if (newStatus == 'Received') {
+        await _adjustAccountInTransaction(txn,
+            accountType: shift.depositTo == 'Pocket' ? 'pocket' : 'bank',
+            amount: shift.netAmount,
+            operation: 'add');
       }
-    }
+    });
   }
 
   // ─── Fixed Bills ──────────────────────────────────────────────────────────
@@ -364,38 +604,66 @@ class DatabaseService {
   Future<void> insertFixedBill(FixedBill bill) async {
     final db = await database;
     final recordId = ensureRecordId(bill.id, 'bill');
-    await db.insert('fixed_bills', {'id': recordId, ...bill.toJson()},
-        conflictAlgorithm: ConflictAlgorithm.replace);
+    final stored = bill.copyWith(id: recordId);
+    await db.transaction((txn) async {
+      await txn.insert('fixed_bills', {'id': recordId, ...stored.toJson()},
+          conflictAlgorithm: ConflictAlgorithm.replace);
+      await _queueSync(txn,
+          entity: 'fixed-bills',
+          recordId: recordId,
+          operation: 'upsert',
+          payload: stored.toJson());
+    });
   }
 
   Future<void> updateFixedBill(FixedBill bill) async {
     final db = await database;
-    await db.update(
-      'fixed_bills',
-      bill.toJson(),
-      where: 'id = ?',
-      whereArgs: [bill.id],
-    );
+    await db.transaction((txn) async {
+      await txn.update(
+        'fixed_bills',
+        bill.toJson(),
+        where: 'id = ?',
+        whereArgs: [bill.id],
+      );
+      await _queueSync(txn,
+          entity: 'fixed-bills',
+          recordId: bill.id,
+          operation: 'upsert',
+          payload: bill.toJson());
+    });
   }
 
   Future<void> toggleFixedBillStatus(String id) async {
     final db = await database;
-    final bills =
-        await db.query('fixed_bills', where: 'id = ?', whereArgs: [id]);
-    if (bills.isNotEmpty) {
+    await db.transaction((txn) async {
+      final bills = await txn.query('fixed_bills',
+          where: 'id = ?', whereArgs: [id], limit: 1);
+      if (bills.isEmpty) return;
       final isPaid = bills.first['status'] == 'Paid';
-      await db.update(
+      final updated = FixedBill.fromJson(bills.first).copyWith(
+        status: isPaid ? 'Pending' : 'Paid',
+      );
+      await txn.update(
         'fixed_bills',
-        {'status': isPaid ? 'Pending' : 'Paid'},
+        {'status': updated.status},
         where: 'id = ?',
         whereArgs: [id],
       );
-    }
+      await _queueSync(txn,
+          entity: 'fixed-bills',
+          recordId: id,
+          operation: 'upsert',
+          payload: updated.toJson());
+    });
   }
 
   Future<void> deleteFixedBill(String id) async {
     final db = await database;
-    await db.delete('fixed_bills', where: 'id = ?', whereArgs: [id]);
+    await db.transaction((txn) async {
+      await _queueSync(txn,
+          entity: 'fixed-bills', recordId: id, operation: 'delete');
+      await txn.delete('fixed_bills', where: 'id = ?', whereArgs: [id]);
+    });
   }
 
   // ─── Debts ────────────────────────────────────────────────────────────────
@@ -421,18 +689,33 @@ class DatabaseService {
   Future<void> insertDebt(DebtItem debt) async {
     final db = await database;
     final recordId = ensureRecordId(debt.id, 'debt');
-    await db.insert('debts', {'id': recordId, ...debt.toJson()},
-        conflictAlgorithm: ConflictAlgorithm.replace);
+    final stored = debt.copyWith(id: recordId);
+    await db.transaction((txn) async {
+      await txn.insert('debts', {'id': recordId, ...stored.toJson()},
+          conflictAlgorithm: ConflictAlgorithm.replace);
+      await _queueSync(txn,
+          entity: 'debts',
+          recordId: recordId,
+          operation: 'upsert',
+          payload: stored.toJson());
+    });
   }
 
   Future<void> updateDebt(DebtItem debt) async {
     final db = await database;
-    await db.update(
-      'debts',
-      debt.toJson(),
-      where: 'id = ?',
-      whereArgs: [debt.id],
-    );
+    await db.transaction((txn) async {
+      await txn.update(
+        'debts',
+        debt.toJson(),
+        where: 'id = ?',
+        whereArgs: [debt.id],
+      );
+      await _queueSync(txn,
+          entity: 'debts',
+          recordId: debt.id,
+          operation: 'upsert',
+          payload: debt.toJson());
+    });
   }
 
   Future<void> payDebt({
@@ -441,29 +724,45 @@ class DatabaseService {
     String? deductFrom,
   }) async {
     final db = await database;
-    final debts = await db.query('debts', where: 'id = ?', whereArgs: [id]);
-    if (debts.isNotEmpty) {
+    await db.transaction((txn) async {
+      final debts =
+          await txn.query('debts', where: 'id = ?', whereArgs: [id], limit: 1);
+      if (debts.isEmpty) return;
       final debt = DebtItem.fromJson(debts.first);
       final newPaid = debt.paidAmount + paymentAmount;
-      await db.update(
+      final status = newPaid >= debt.amount
+          ? 'Settled'
+          : newPaid > 0
+              ? 'Partial'
+              : 'Pending';
+      final updatedDebt = debt.copyWith(paidAmount: newPaid, status: status);
+      await txn.update(
         'debts',
-        {'paidAmount': newPaid},
+        {'paidAmount': newPaid, 'status': status},
         where: 'id = ?',
         whereArgs: [id],
       );
+      await _queueSync(txn,
+          entity: 'debts',
+          recordId: id,
+          operation: 'upsert',
+          payload: updatedDebt.toJson());
 
       if (deductFrom != null) {
-        await adjustAccount(
+        await _adjustAccountInTransaction(txn,
             accountType: deductFrom,
             amount: paymentAmount,
-            operation: 'deduct');
+            operation: debt.direction == 'owed_to_me' ? 'add' : 'deduct');
       }
-    }
+    });
   }
 
   Future<void> deleteDebt(String id) async {
     final db = await database;
-    await db.delete('debts', where: 'id = ?', whereArgs: [id]);
+    await db.transaction((txn) async {
+      await _queueSync(txn, entity: 'debts', recordId: id, operation: 'delete');
+      await txn.delete('debts', where: 'id = ?', whereArgs: [id]);
+    });
   }
 
   // ─── Budget ───────────────────────────────────────────────────────────────
@@ -502,11 +801,18 @@ class DatabaseService {
   Future<void> setBudget(MonthlyBudget budget) async {
     final db = await database;
     await _ensureBudgetSocialInsuranceColumn(db);
-    await db.insert(
-      'budget',
-      budget.toJson(),
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await db.transaction((txn) async {
+      await txn.insert(
+        'budget',
+        budget.toJson(),
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+      await _queueSync(txn,
+          entity: 'budgets',
+          recordId: budget.month,
+          operation: 'upsert',
+          payload: budget.toJson());
+    });
   }
 
   // ─── Accounts (Pocket & Bank) ─────────────────────────────────────────────
@@ -528,11 +834,15 @@ class DatabaseService {
     String notes = "",
   }) async {
     final db = await database;
-    await db.update(
-      'accounts',
-      {'pocket': pocket, 'bank': bank, 'notes': notes},
-      where: 'id = 1',
-    );
+    final payload = {'pocket': pocket, 'bank': bank, 'notes': notes};
+    await db.transaction((txn) async {
+      await txn.update('accounts', payload, where: 'id = 1');
+      await _queueSync(txn,
+          entity: 'accounts',
+          recordId: '1',
+          operation: 'upsert',
+          payload: payload);
+    });
   }
 
   Future<void> adjustAccount({
@@ -541,22 +851,17 @@ class DatabaseService {
     String operation = "add",
   }) async {
     final db = await database;
-    final accounts = await getAccounts();
-
-    final delta = operation == "deduct" ? -amount.abs() : amount.abs();
-
-    if (accountType == "pocket") {
-      final newPocket = (accounts.pocket + delta).clamp(0.0, double.infinity);
-      await db.update('accounts', {'pocket': newPocket}, where: 'id = 1');
-    } else if (accountType == "bank") {
-      final newBank = (accounts.bank + delta).clamp(0.0, double.infinity);
-      await db.update('accounts', {'bank': newBank}, where: 'id = 1');
-    }
+    await db.transaction((txn) => _adjustAccountInTransaction(
+          txn,
+          accountType: accountType,
+          amount: amount,
+          operation: operation,
+        ));
   }
 
   // ─── Custom Options ───────────────────────────────────────────────────────
 
-  Future<List<String>> getCustomOptions(String type) async {
+  Future<List<CustomOption>> getCustomOptions(String type) async {
     final db = await database;
     final maps = await db.query(
       'custom_options',
@@ -565,16 +870,285 @@ class DatabaseService {
       orderBy: 'name ASC',
     );
 
-    return maps.map((map) => map['name'] as String).toList();
+    return maps
+        .map((map) => CustomOption.fromJson({
+              ...map,
+              'id': map['id'].toString(),
+            }))
+        .toList();
   }
 
-  Future<void> addCustomOption(String type, String name) async {
+  Future<void> addCustomOption(String type, String name,
+      {int? colorValue}) async {
     final db = await database;
-    await db.insert(
-      'custom_options',
-      {'type': type, 'name': name},
-      conflictAlgorithm: ConflictAlgorithm.ignore,
+    await db.transaction((txn) async {
+      await txn.insert(
+        'custom_options',
+        {'type': type, 'name': name, 'colorValue': colorValue},
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+      final recordId = '$type::${name.toLowerCase()}';
+      await _queueSync(txn,
+          entity: 'custom-options',
+          recordId: recordId,
+          operation: 'upsert',
+          payload: {
+            'type': type,
+            'name': name,
+            if (colorValue != null) 'colorValue': colorValue,
+          });
+    });
+  }
+
+  Future<List<PeopleMoneyEntry>> getPeopleMoneyEntries() async {
+    final db = await database;
+    final maps = await db.query(
+      'people_money_entries',
+      orderBy: 'datetime(date) DESC',
     );
+    return maps.map((map) => PeopleMoneyEntry.fromJson(map)).toList();
+  }
+
+  Future<void> insertPeopleMoneyEntry(PeopleMoneyEntry entry) async {
+    final db = await database;
+    final recordId = ensureRecordId(entry.id, 'people-money');
+    final stored = PeopleMoneyEntry(
+      id: recordId,
+      personName: entry.personName,
+      relationship: entry.relationship,
+      direction: entry.direction,
+      amount: entry.amount,
+      date: entry.date,
+      notes: entry.notes,
+    );
+    await db.transaction((txn) async {
+      await txn.insert(
+        'people_money_entries',
+        {'id': recordId, ...stored.toJson()},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+      await _queueSync(txn,
+          entity: 'people-money',
+          recordId: recordId,
+          operation: 'upsert',
+          payload: stored.toJson());
+    });
+  }
+
+  Future<void> updatePeopleMoneyEntry(PeopleMoneyEntry entry) async {
+    final db = await database;
+    await db.transaction((txn) async {
+      await txn.update(
+        'people_money_entries',
+        entry.toJson(),
+        where: 'id = ?',
+        whereArgs: [entry.id],
+      );
+      await _queueSync(txn,
+          entity: 'people-money',
+          recordId: entry.id,
+          operation: 'upsert',
+          payload: entry.toJson());
+    });
+  }
+
+  Future<void> deletePeopleMoneyEntry(String id) async {
+    final db = await database;
+    await db.transaction((txn) async {
+      await _queueSync(txn,
+          entity: 'people-money', recordId: id, operation: 'delete');
+      await txn.delete(
+        'people_money_entries',
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+    });
+  }
+
+  Future<List<Map<String, dynamic>>> pendingSyncOperations() async {
+    final db = await database;
+    final rows = await db.query('sync_queue', orderBy: 'id ASC');
+    return rows.map((row) {
+      final payload = row['payload'] as String?;
+      return {
+        'queueId': row['id'],
+        'entity': row['entity'],
+        'recordId': row['recordId'],
+        'remoteId': row['remoteId'],
+        'operation': row['operation'],
+        'payload': payload == null
+            ? null
+            : jsonDecode(payload) as Map<String, dynamic>,
+      };
+    }).toList();
+  }
+
+  Future<int> pendingSyncCount() async {
+    final db = await database;
+    final result =
+        await db.rawQuery('SELECT COUNT(*) AS count FROM sync_queue');
+    return (result.first['count'] as num).toInt();
+  }
+
+  Future<void> acknowledgeSyncOperation({
+    required int queueId,
+    required String entity,
+    required String recordId,
+    required String operation,
+    String? remoteId,
+  }) async {
+    final db = await database;
+    await db.transaction((txn) async {
+      await txn.delete('sync_queue', where: 'id = ?', whereArgs: [queueId]);
+      if (operation == 'delete') {
+        await txn.delete(
+          'sync_id_map',
+          where: 'entity = ? AND localId = ?',
+          whereArgs: [entity, recordId],
+        );
+      } else if (remoteId != null && remoteId.isNotEmpty) {
+        await txn.insert(
+          'sync_id_map',
+          {'entity': entity, 'localId': recordId, 'remoteId': remoteId},
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+    });
+  }
+
+  Future<void> applyRemoteSnapshot(Map<String, dynamic> snapshot) async {
+    final db = await database;
+    await db.transaction((txn) async {
+      await _mergeRemoteRecords(txn, 'expenses', 'expenses',
+          snapshot['expenses'] as List? ?? const []);
+      await _mergeRemoteRecords(
+          txn, 'shifts', 'shifts', snapshot['shifts'] as List? ?? const []);
+      await _mergeRemoteRecords(txn, 'fixed-bills', 'fixed_bills',
+          snapshot['fixedBills'] as List? ?? const []);
+      await _mergeRemoteRecords(
+          txn, 'debts', 'debts', snapshot['debts'] as List? ?? const []);
+      await _mergeRemoteRecords(txn, 'people-money', 'people_money_entries',
+          snapshot['peopleMoney'] as List? ?? const []);
+
+      final budgets = snapshot['budgets'] as List? ?? const [];
+      for (final item in budgets) {
+        final record = Map<String, dynamic>.from(item as Map);
+        final month = record['month']?.toString();
+        if (month == null || month.isEmpty) continue;
+        if (await _hasPending(txn, 'budgets', month)) continue;
+        await txn.insert(
+          'budget',
+          MonthlyBudget.fromJson(record).toJson(),
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+
+      final account = snapshot['accounts'];
+      if (account is Map) {
+        final record = Map<String, dynamic>.from(account);
+        if (!await _hasPending(txn, 'accounts', '1')) {
+          await txn.update(
+            'accounts',
+            AccountBalance.fromJson(record).toJson(),
+            where: 'id = 1',
+          );
+        }
+      }
+
+      final options = snapshot['customOptions'] as List? ?? const [];
+      for (final item in options) {
+        final record = Map<String, dynamic>.from(item as Map);
+        final type = record['type']?.toString() ?? '';
+        final name = record['name']?.toString() ?? '';
+        if (type.isEmpty || name.isEmpty) continue;
+        final key = '$type::${name.toLowerCase()}';
+        if (await _hasPending(txn, 'custom-options', key)) continue;
+        await txn.insert(
+          'custom_options',
+          {
+            'type': type,
+            'name': name,
+            'colorValue': record['colorValue'],
+          },
+          conflictAlgorithm: ConflictAlgorithm.ignore,
+        );
+      }
+    });
+  }
+
+  Future<bool> _hasPending(
+      DatabaseExecutor db, String entity, String recordId) async {
+    final rows = await db.query(
+      'sync_queue',
+      columns: ['id'],
+      where: 'entity = ? AND recordId = ?',
+      whereArgs: [entity, recordId],
+      limit: 1,
+    );
+    return rows.isNotEmpty;
+  }
+
+  Future<void> _mergeRemoteRecords(
+    DatabaseExecutor db,
+    String entity,
+    String table,
+    List<dynamic> records,
+  ) async {
+    for (final item in records) {
+      final record = Map<String, dynamic>.from(item as Map);
+      final remoteId = record['_id']?.toString();
+      if (remoteId == null || remoteId.isEmpty) continue;
+      final clientId = record['clientId']?.toString();
+      final mappings = await db.query(
+        'sync_id_map',
+        columns: ['localId'],
+        where: 'entity = ? AND remoteId = ?',
+        whereArgs: [entity, remoteId],
+        limit: 1,
+      );
+      final localId = mappings.isNotEmpty
+          ? mappings.first['localId'].toString()
+          : clientId ?? remoteId;
+      await db.insert(
+        'sync_id_map',
+        {'entity': entity, 'localId': localId, 'remoteId': remoteId},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+      if (await _hasPending(db, entity, localId)) continue;
+
+      if (entity == 'expenses') {
+        await db.insert(
+          table,
+          {'id': localId, ...Expense.fromJson(record).toJson()},
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      } else if (entity == 'shifts') {
+        await db.insert(
+          table,
+          {'id': localId, ...EarningShift.fromJson(record).toJson()},
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      } else if (entity == 'fixed-bills') {
+        await db.insert(
+          table,
+          {'id': localId, ...FixedBill.fromJson(record).toJson()},
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      } else if (entity == 'debts') {
+        await db.insert(
+          table,
+          {'id': localId, ...DebtItem.fromJson(record).toJson()},
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      } else if (entity == 'people-money') {
+        final entry = PeopleMoneyEntry.fromJson(record);
+        await db.insert(
+          table,
+          {'id': localId, ...entry.toJson()},
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+    }
   }
 
   // ─── Dashboard Summary ────────────────────────────────────────────────────
@@ -583,25 +1157,29 @@ class DatabaseService {
     final expenses = await getExpenses(month: month);
     final shifts = await getShifts(month: month);
     final bills = await getFixedBills(month: month);
-    final debts = await getDebts(month: month);
+    final debts = await getDebts();
     final accounts = await getAccounts();
+    final budget = await getBudget(month: month);
 
-    // Calculate totals
     final totalExpenses = expenses.fold<double>(0, (sum, e) => sum + e.price);
-    final paidEarnings = shifts
-        .where((s) => s.paymentStatus == 'Paid')
+    final netEarnings =
+        shifts.fold<double>(0, (sum, shift) => sum + shift.netAmount);
+    final receivedEarnings = shifts
+        .where((s) => s.paymentStatus == 'Received')
         .fold<double>(0, (sum, s) => sum + s.netAmount);
     final pendingEarnings = shifts
         .where((s) => s.paymentStatus == 'Pending')
         .fold<double>(0, (sum, s) => sum + s.netAmount);
     final totalFixedBills = bills.fold<double>(0, (sum, b) => sum + b.amount);
+    final paidFixedBills = bills
+        .where((bill) => bill.status == 'Paid')
+        .fold<double>(0, (sum, bill) => sum + bill.amount);
 
-    // Calculate debt info
     final totalDebt = debts.fold<double>(0, (sum, d) => sum + d.amount);
     final paidDebt = debts.fold<double>(0, (sum, d) => sum + d.paidAmount);
-    final remainingDebt = totalDebt - paidDebt;
+    final remainingDebt = math.max(0.0, totalDebt - paidDebt).toDouble();
     final debtPayoffPercent =
-        totalDebt > 0 ? (paidDebt / totalDebt * 100) : 0.0;
+        totalDebt > 0 ? (paidDebt / totalDebt * 100) : 100.0;
 
     // Category breakdown
     final categoryBreakdown = <String, double>{};
@@ -610,21 +1188,28 @@ class DatabaseService {
           (categoryBreakdown[expense.category] ?? 0) + expense.price;
     }
 
-    // Daily spending for chart
     final dailySpending = <String, double>{};
     for (final expense in expenses) {
-      final day = expense.date.day.toString().padLeft(2, '0');
+      final day =
+          '${expense.date.day.toString().padLeft(2, '0')}/${expense.date.month.toString().padLeft(2, '0')}';
       dailySpending[day] = (dailySpending[day] ?? 0) + expense.price;
     }
+    final remainingBudget =
+        budget.amount > 0 ? budget.amount - totalExpenses : 0.0;
 
     return DashboardSummary(
+      month: month ?? '',
       totalExpenses: totalExpenses,
       grossEarnings: shifts.fold<double>(0, (sum, s) => sum + s.grossAmount),
-      netEarnings: paidEarnings,
+      netEarnings: netEarnings,
       pendingEarnings: pendingEarnings,
-      receivedEarnings: paidEarnings,
+      receivedEarnings: receivedEarnings,
       totalFixedBills: totalFixedBills,
-      netBalance: paidEarnings - totalExpenses - totalFixedBills,
+      monthlyBudget: budget.amount,
+      remainingBudget: remainingBudget,
+      budgetUsedPercent:
+          budget.amount > 0 ? totalExpenses / budget.amount * 100 : 0,
+      netBalance: netEarnings - totalExpenses - paidFixedBills,
       totalTransactions: expenses.length + shifts.length,
       categoryBreakdown: categoryBreakdown,
       dailySpending: dailySpending,
@@ -653,7 +1238,9 @@ class DatabaseService {
   }
 
   Future<void> close() async {
-    final db = await database;
+    final db = _database;
+    if (db == null) return;
     await db.close();
+    _database = null;
   }
 }

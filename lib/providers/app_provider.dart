@@ -1,8 +1,10 @@
+import "dart:async";
+
 import "package:flutter/material.dart";
 import "package:intl/intl.dart";
 import "package:shared_preferences/shared_preferences.dart";
 import "../models/models.dart";
-import "../services/mongodb_service_old.dart";
+import "../services/mongodb_service.dart";
 
 class AppProvider with ChangeNotifier {
   List<Expense> _expenses = [];
@@ -13,6 +15,9 @@ class AppProvider with ChangeNotifier {
   List<PeopleMoneyEntry> _peopleMoneyEntries = [];
   bool _isPeopleMoneyLoading = false;
   String? _peopleMoneyError;
+  bool _isSyncing = false;
+  int _pendingSyncCount = 0;
+  String? _syncError;
   MonthlyBudget _budget = MonthlyBudget(month: "", amount: 0.0);
   AccountBalance _accounts = AccountBalance.initial();
   DashboardSummary _summary = DashboardSummary.initial();
@@ -79,6 +84,40 @@ class AppProvider with ChangeNotifier {
   AppProvider() {
     final now = DateTime.now();
     _selectedMonth = "${now.year}-${now.month.toString().padLeft(2, '0')}";
+    MongoService.setOnSyncStateChanged(_onSyncStateChanged);
+    unawaited(_refreshSyncState());
+  }
+
+  void _onSyncStateChanged() {
+    _isSyncing = MongoService.isSyncing;
+    notifyListeners();
+    if (!_isSyncing) {
+      unawaited(fetchAllData());
+    }
+    unawaited(_refreshSyncState());
+  }
+
+  Future<void> _refreshSyncState() async {
+    try {
+      _isSyncing = MongoService.isSyncing;
+      _pendingSyncCount = await MongoService.pendingSyncCount;
+      _syncError = MongoService.lastSyncError;
+      notifyListeners();
+    } catch (error) {
+      debugPrint("Sync status error: $error");
+    }
+  }
+
+  Future<void> syncNow() async {
+    await MongoService.syncPendingChanges();
+    await _refreshSyncState();
+    await fetchAllData();
+  }
+
+  @override
+  void dispose() {
+    MongoService.setOnSyncStateChanged(null);
+    super.dispose();
   }
 
   // ─── Getters ────────────────────────────────────────────────────────────
@@ -89,6 +128,9 @@ class AppProvider with ChangeNotifier {
   List<PeopleMoneyEntry> get peopleMoneyEntries => _peopleMoneyEntries;
   bool get isPeopleMoneyLoading => _isPeopleMoneyLoading;
   String? get peopleMoneyError => _peopleMoneyError;
+  bool get isSyncing => _isSyncing;
+  int get pendingSyncCount => _pendingSyncCount;
+  String? get syncError => _syncError;
   MonthlyBudget get budget => _budget;
   AccountBalance get accounts => _accounts;
   DashboardSummary get summary => _summary;
@@ -400,6 +442,7 @@ class AppProvider with ChangeNotifier {
         MongoService.getAccounts(),
         MongoService.getDebts(month: _selectedMonth),
         MongoService.getDebts(),
+        MongoService.getPeopleMoneyEntries(),
       ]);
 
       _expenses = (results[0] as List<Expense>)
@@ -412,6 +455,8 @@ class AppProvider with ChangeNotifier {
       _accounts = results[5] as AccountBalance;
       _debts = results[6] as List<DebtItem>;
       _allDebts = results[7] as List<DebtItem>;
+      _peopleMoneyEntries = results[8] as List<PeopleMoneyEntry>;
+      _peopleMoneyError = null;
 
       await loadCustomOptions();
     } catch (e) {

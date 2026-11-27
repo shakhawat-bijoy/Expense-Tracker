@@ -720,6 +720,142 @@ app.get("/api/dashboard/summary", async (req, res) => {
   }
 });
 
+app.get("/api/sync/snapshot", async (req, res) => {
+  try {
+    const [
+      expenses,
+      shifts,
+      fixedBills,
+      debts,
+      peopleMoney,
+      budgets,
+      account,
+      customOptions
+    ] = await Promise.all([
+      Expense.find().lean(),
+      EarningShift.find().lean(),
+      FixedBill.find().lean(),
+      Debt.find().lean(),
+      PeopleMoneyEntry.find().lean(),
+      Budget.find().lean(),
+      AccountBalance.findOne().lean(),
+      CustomOption.find().lean()
+    ]);
+
+    res.json({
+      expenses,
+      shifts,
+      fixedBills,
+      debts,
+      peopleMoney,
+      budgets,
+      accounts: account,
+      customOptions
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/sync", async (req, res) => {
+  const operations = req.body.operations;
+  if (!Array.isArray(operations)) {
+    return res.status(400).json({ error: "Operations must be an array" });
+  }
+
+  const models = {
+    expenses: Expense,
+    shifts: EarningShift,
+    "fixed-bills": FixedBill,
+    debts: Debt,
+    "people-money": PeopleMoneyEntry
+  };
+  const acknowledged = [];
+  const failed = [];
+
+  for (const operation of operations) {
+    const { queueId, entity, recordId, remoteId, action, payload = {} } =
+      operation;
+    try {
+      if (!Number.isInteger(queueId) || typeof recordId !== "string") {
+        throw new Error("Invalid queued operation");
+      }
+
+      if (action === "delete") {
+        if (entity === "accounts") {
+          throw new Error("The account balance record cannot be deleted");
+        }
+        if (entity === "budgets") {
+          await Budget.deleteOne({ month: recordId });
+        } else if (entity === "custom-options") {
+          const query = remoteId
+            ? { _id: remoteId }
+            : { clientId: recordId };
+          await CustomOption.deleteOne(query);
+        } else {
+          const model = models[entity];
+          if (!model) throw new Error(`Unsupported sync entity: ${entity}`);
+          const query = remoteId
+            ? { _id: remoteId }
+            : { clientId: recordId };
+          await model.deleteOne(query);
+        }
+        acknowledged.push({ queueId, remoteId: remoteId || null });
+        continue;
+      }
+
+      if (action !== "upsert") {
+        throw new Error(`Unsupported sync action: ${action}`);
+      }
+
+      let document;
+      if (entity === "accounts") {
+        document = await AccountBalance.findOneAndUpdate(
+          {},
+          { $set: payload },
+          { upsert: true, new: true, runValidators: true, setDefaultsOnInsert: true }
+        );
+      } else if (entity === "budgets") {
+        if (!payload.month) throw new Error("Budget month is required");
+        document = await Budget.findOneAndUpdate(
+          { month: payload.month },
+          { $set: payload },
+          { upsert: true, new: true, runValidators: true, setDefaultsOnInsert: true }
+        );
+      } else if (entity === "custom-options") {
+        const existing = await CustomOption.findOne({
+          type: payload.type,
+          name: payload.name
+        });
+        document = existing || await CustomOption.create({
+          ...payload,
+          clientId: recordId
+        });
+      } else {
+        const model = models[entity];
+        if (!model) throw new Error(`Unsupported sync entity: ${entity}`);
+        const query = remoteId
+          ? { _id: remoteId }
+          : { clientId: recordId };
+        document = await model.findOneAndUpdate(
+          query,
+          { $set: { ...payload, clientId: recordId } },
+          { upsert: true, new: true, runValidators: true, setDefaultsOnInsert: true }
+        );
+      }
+
+      acknowledged.push({
+        queueId,
+        remoteId: document?._id?.toString() || remoteId || null
+      });
+    } catch (err) {
+      failed.push({ queueId, error: err.message });
+    }
+  }
+
+  res.json({ acknowledged, failed });
+});
+
 const PORT = process.env.PORT || 5000;
 const HOST = process.env.HOST || "0.0.0.0";
 const server = app.listen(PORT, HOST, () =>

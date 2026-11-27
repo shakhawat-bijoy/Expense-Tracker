@@ -1,7 +1,10 @@
+import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
 import "package:flutter/services.dart";
 import "package:google_fonts/google_fonts.dart";
 import "package:provider/provider.dart";
+import "package:sqflite/sqflite.dart" show databaseFactory;
+import "package:sqflite_common_ffi_web/sqflite_ffi_web.dart";
 import "providers/app_provider.dart";
 import "screens/dashboard_screen.dart";
 import "screens/earnings_screen.dart";
@@ -10,10 +13,13 @@ import "screens/statistics_screen.dart";
 import "screens/bills_screen.dart";
 import "screens/debts_screen.dart";
 import "screens/people_money_screen.dart";
-import "services/mongodb_service_old.dart";
+import "services/mongodb_service.dart";
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  if (kIsWeb) {
+    databaseFactory = databaseFactoryFfiWeb;
+  }
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
     statusBarIconBrightness: Brightness.light,
@@ -217,6 +223,26 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
         ),
         centerTitle: false,
         actions: [
+          IconButton(
+            tooltip: provider.syncError ??
+                (provider.pendingSyncCount == 0
+                    ? "Synced with database"
+                    : "${provider.pendingSyncCount} changes waiting to sync"),
+            onPressed: provider.isSyncing ? null : provider.syncNow,
+            icon: provider.isSyncing
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Icon(
+                    provider.syncError != null
+                        ? Icons.cloud_off_rounded
+                        : provider.pendingSyncCount == 0
+                            ? Icons.cloud_done_rounded
+                            : Icons.cloud_upload_rounded,
+                  ),
+          ),
           IconButton(
             icon: AnimatedSwitcher(
               duration: const Duration(milliseconds: 300),

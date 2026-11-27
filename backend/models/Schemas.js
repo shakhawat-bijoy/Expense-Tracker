@@ -9,6 +9,7 @@ function getMonthString(date) {
 
 // ─── Expense ─────────────────────────────────────────────────────────────
 const ExpenseSchema = new mongoose.Schema({
+  clientId: { type: String },
   item: { type: String, required: true },
   category: { 
     type: String, 
@@ -37,6 +38,7 @@ ExpenseSchema.pre("save", function(next) {
 
 // ─── Earning Shift ───────────────────────────────────────────────────────
 const EarningShiftSchema = new mongoose.Schema({
+  clientId: { type: String },
   date: { type: Date, required: true },
   month: { 
     type: String, 
@@ -70,6 +72,7 @@ EarningShiftSchema.pre("save", function(next) {
 
 // ─── Fixed Bill ──────────────────────────────────────────────────────────
 const FixedBillSchema = new mongoose.Schema({
+  clientId: { type: String },
   name: { type: String, required: true },
   amount: { type: Number, required: true },
   category: { type: String, default: "Utilities" },
@@ -87,6 +90,7 @@ const BudgetSchema = new mongoose.Schema({
 
 // ─── Debts to Pay Off ────────────────────────────────────────────────────
 const DebtSchema = new mongoose.Schema({
+  clientId: { type: String },
   title: { type: String, required: true }, // e.g. "Car Loan", "Credit Card", "Loan from John"
   personName: { type: String, default: "" }, // Creditor / Lender / Person
   amount: { type: Number, required: true }, // Total amount owed
@@ -112,6 +116,7 @@ DebtSchema.pre("save", function(next) {
 
 // ─── Money Given To / Taken From People ────────────────────────────────────
 const PeopleMoneyEntrySchema = new mongoose.Schema({
+  clientId: { type: String },
   personName: { type: String, required: true, trim: true },
   relationship: {
     type: String,
@@ -133,6 +138,7 @@ const AccountBalanceSchema = new mongoose.Schema({
 
 // ─── Custom Dynamic Dropdown Options ─────────────────────────────────────
 const CustomOptionSchema = new mongoose.Schema({
+  clientId: { type: String },
   type: { type: String, required: true }, // 'expense_category', 'shift_role', 'payment_method', 'bill_category', 'debt_category'
   name: { type: String, required: true },
   colorValue: { type: Number }

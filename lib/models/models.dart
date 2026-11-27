@@ -26,7 +26,7 @@ class Expense {
         ? DateTime.parse(json["date"].toString())
         : DateTime.now();
     return Expense(
-      id: json["_id"] ?? json["id"] ?? "",
+      id: (json["_id"] ?? json["id"] ?? "").toString(),
       item: json["item"] ?? "",
       category: json["category"] ?? "Other",
       price: (json["price"] as num?)?.toDouble() ?? 0.0,
@@ -119,7 +119,7 @@ class EarningShift {
         ? DateTime.parse(json["date"].toString())
         : DateTime.now();
     return EarningShift(
-      id: json["_id"] ?? json["id"] ?? "",
+      id: (json["_id"] ?? json["id"] ?? "").toString(),
       date: parsedDate,
       month: json["month"] ??
           "${parsedDate.year}-${parsedDate.month.toString().padLeft(2, '0')}",
@@ -134,7 +134,9 @@ class EarningShift {
       rentDeduction: (json["rentDeduction"] as num?)?.toDouble() ?? 0.0,
       taxPercent: (json["taxPercent"] as num?)?.toDouble() ?? 0.0,
       netAmount: (json["netAmount"] as num?)?.toDouble() ?? 0.0,
-      paymentStatus: json["paymentStatus"] ?? "Pending",
+      paymentStatus: json["paymentStatus"] == "Paid"
+          ? "Received"
+          : json["paymentStatus"] ?? "Pending",
       payoutBatch: json["payoutBatch"] ?? "General",
       depositTo: json["depositTo"] ?? "Bank Account",
     );
@@ -217,7 +219,7 @@ class FixedBill {
   });
 
   factory FixedBill.fromJson(Map<String, dynamic> json) => FixedBill(
-        id: json["_id"] ?? json["id"] ?? "",
+        id: (json["_id"] ?? json["id"] ?? "").toString(),
         name: json["name"] ?? "",
         amount: (json["amount"] as num?)?.toDouble() ?? 0.0,
         category: json["category"] ?? "Utilities",
@@ -267,7 +269,7 @@ class MonthlyBudget {
   });
 
   factory MonthlyBudget.fromJson(Map<String, dynamic> json) => MonthlyBudget(
-        id: json["_id"] ?? json["id"] ?? "",
+        id: (json["_id"] ?? json["id"] ?? "").toString(),
         month: json["month"] ?? "",
         amount: (json["amount"] as num?)?.toDouble() ?? 0.0,
         socialInsurance: (json["socialInsurance"] as num?)?.toDouble() ?? 0.0,
@@ -374,7 +376,7 @@ class DebtItem {
       } catch (_) {}
     }
     return DebtItem(
-      id: json["_id"] ?? json["id"] ?? "",
+      id: (json["_id"] ?? json["id"] ?? "").toString(),
       title: json["title"] ?? json["personName"] ?? "Debt",
       personName: json["personName"] ?? "",
       amount: (json["amount"] as num?)?.toDouble() ?? 0.0,
@@ -452,13 +454,13 @@ class PeopleMoneyEntry {
 
   factory PeopleMoneyEntry.fromJson(Map<String, dynamic> json) =>
       PeopleMoneyEntry(
-        id: json["_id"] ?? json["id"] ?? "",
+        id: (json["_id"] ?? json["id"] ?? "").toString(),
         personName: json["personName"] ?? "",
         relationship: json["relationship"] ?? "Other",
         direction: json["direction"] ?? "given",
         amount: (json["amount"] as num?)?.toDouble() ?? 0.0,
-        date: DateTime.tryParse(json["date"]?.toString() ?? "") ??
-            DateTime.now(),
+        date:
+            DateTime.tryParse(json["date"]?.toString() ?? "") ?? DateTime.now(),
         notes: json["notes"] ?? "",
       );
 
@@ -486,7 +488,7 @@ class CustomOption {
   });
 
   factory CustomOption.fromJson(Map<String, dynamic> json) => CustomOption(
-        id: json["_id"] ?? "",
+        id: (json["_id"] ?? json["id"] ?? "").toString(),
         type: json["type"] ?? "",
         name: json["name"] ?? "",
         colorValue: (json["colorValue"] as num?)?.toInt(),
