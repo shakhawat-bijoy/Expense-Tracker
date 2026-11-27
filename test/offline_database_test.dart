@@ -48,6 +48,10 @@ void main() {
 
     expect(entries, hasLength(1));
     expect(entries.single.personName, "Local person");
+    expect(entries.single.relationship, "Friend");
+    expect(entries.single.direction, "given");
+    expect(entries.single.amount, 25);
+    expect(entries.single.date, entry.date);
     expect(entries.single.notes, "Saved offline");
     expect(pending, hasLength(1));
     expect(pending.single["entity"], "people-money");

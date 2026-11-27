@@ -343,6 +343,7 @@ class _PeopleMoneyScreenState extends State<PeopleMoneyScreen> {
     final amountController = TextEditingController();
     final notesController = TextEditingController();
     final formKey = GlobalKey<FormState>();
+    var selectedDate = DateTime.now();
     var direction = "given";
     var relationship = "Family";
     var saving = false;
@@ -446,6 +447,29 @@ class _PeopleMoneyScreenState extends State<PeopleMoneyScreen> {
                     },
                   ),
                   const SizedBox(height: 12),
+                  InkWell(
+                    onTap: () async {
+                      final pickedDate = await showDatePicker(
+                        context: context,
+                        initialDate: selectedDate,
+                        firstDate: DateTime(1900),
+                        lastDate: DateTime.now(),
+                      );
+                      if (pickedDate != null) {
+                        setSheetState(() => selectedDate = pickedDate);
+                      }
+                    },
+                    child: InputDecorator(
+                      decoration: const InputDecoration(
+                        labelText: "Transaction date",
+                        prefixIcon: Icon(Icons.calendar_month_rounded),
+                        suffixIcon: Icon(Icons.edit_calendar_rounded),
+                      ),
+                      child:
+                          Text(DateFormat("dd MMM yyyy").format(selectedDate)),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   TextFormField(
                     controller: notesController,
                     decoration: const InputDecoration(
@@ -468,7 +492,7 @@ class _PeopleMoneyScreenState extends State<PeopleMoneyScreen> {
                                 relationship: relationship,
                                 direction: direction,
                                 amount: double.parse(amountController.text),
-                                date: DateTime.now(),
+                                date: selectedDate,
                                 notes: notesController.text.trim(),
                               );
                               try {
