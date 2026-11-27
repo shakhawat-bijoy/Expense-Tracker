@@ -63,7 +63,7 @@ class _PeopleMoneyScreenState extends State<PeopleMoneyScreen> {
                 children: [
                   Text(
                     "Money with People",
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
                   ),
@@ -132,7 +132,10 @@ class _PeopleMoneyScreenState extends State<PeopleMoneyScreen> {
                       leading: const Icon(Icons.pie_chart_outline_rounded),
                       title: const Text(
                         "Totals by relationship",
-                        style: TextStyle(fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                       children: [
                         for (final relationship in _relationships)
@@ -267,7 +270,7 @@ class _PeopleMoneyScreenState extends State<PeopleMoneyScreen> {
               const SizedBox(height: 12),
               const Text(
                 "No entries yet",
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
               ),
               const SizedBox(height: 6),
               const Text(
@@ -305,6 +308,11 @@ class _PeopleMoneyScreenState extends State<PeopleMoneyScreen> {
         return Card(
           margin: EdgeInsets.zero,
           child: ListTile(
+            onTap: () => _showEntrySheet(
+              context,
+              context.read<AppProvider>(),
+              initialEntry: entry,
+            ),
             leading: CircleAvatar(
               backgroundColor: color.withValues(alpha: 0.12),
               child: Icon(
@@ -314,7 +322,9 @@ class _PeopleMoneyScreenState extends State<PeopleMoneyScreen> {
             ),
             title: Text(
               "${isGiven ? "Given to" : "Taken from"} $person",
-              style: const TextStyle(fontWeight: FontWeight.w600),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
             ),
             subtitle: Text(
               "${DateFormat("dd MMM yyyy").format(entry.date)}"
@@ -322,26 +332,12 @@ class _PeopleMoneyScreenState extends State<PeopleMoneyScreen> {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  _currency.format(entry.amount),
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: color,
-                  ),
-                ),
-                IconButton(
-                  tooltip: "Edit entry",
-                  onPressed: () => _showEntrySheet(
-                    context,
-                    context.read<AppProvider>(),
-                    initialEntry: entry,
-                  ),
-                  icon: const Icon(Icons.edit_outlined),
-                ),
-              ],
+            trailing: Text(
+              _currency.format(entry.amount),
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
             ),
           ),
         );
@@ -395,7 +391,7 @@ class _PeopleMoneyScreenState extends State<PeopleMoneyScreen> {
                         ? "Add Money Entry"
                         : "Edit Money Entry",
                     style: const TextStyle(
-                      fontSize: 18,
+                      fontSize: 15,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -604,7 +600,7 @@ class _TotalCard extends StatelessWidget {
               child: Text(
                 amount,
                 style: TextStyle(
-                  fontSize: 17,
+                  fontSize: 14,
                   fontWeight: FontWeight.bold,
                   color: color,
                 ),
