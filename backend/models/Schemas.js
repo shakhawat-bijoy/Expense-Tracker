@@ -126,7 +126,8 @@ const PeopleMoneyEntrySchema = new mongoose.Schema({
   direction: { type: String, enum: ["given", "taken"], required: true },
   amount: { type: Number, required: true, min: 0.01 },
   date: { type: Date, required: true, default: Date.now },
-  notes: { type: String, default: "" }
+  notes: { type: String, default: "" },
+  hidden: { type: Boolean, default: false }
 }, { timestamps: true });
 
 // ─── Account Balances (Pocket / Cash and Bank Account) ───────────────────

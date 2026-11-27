@@ -10,7 +10,7 @@ class DatabaseService {
   static Database? _database;
   static String? _databasePathOverride;
   static const String _dbName = "expense_tracker.db";
-  static const int _dbVersion = 6;
+  static const int _dbVersion = 7;
 
   @visibleForTesting
   static void setDatabasePathForTesting(String? path) {
@@ -247,6 +247,10 @@ class DatabaseService {
       await _ensureExpenseAccountColumn(db);
       await _ensureDebtDirectionColumn(db);
     }
+
+    if (oldVersion < 7) {
+      await _ensurePeopleMoneyHiddenColumn(db);
+    }
   }
 
   Future<void> _ensureExpenseAccountColumn(Database db) async {
@@ -255,6 +259,18 @@ class DatabaseService {
     if (!names.contains('accountDeductedFrom')) {
       await db
           .execute('ALTER TABLE expenses ADD COLUMN accountDeductedFrom TEXT');
+    }
+  }
+
+  Future<void> _ensurePeopleMoneyHiddenColumn(Database db) async {
+    final columns =
+        await db.rawQuery('PRAGMA table_info(people_money_entries)');
+    final names = columns.map((row) => row['name'].toString()).toSet();
+    if (!names.contains('hidden')) {
+      await db.execute(
+        'ALTER TABLE people_money_entries '
+        'ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0',
+      );
     }
   }
 
@@ -277,7 +293,8 @@ class DatabaseService {
         direction TEXT NOT NULL,
         amount REAL NOT NULL,
         date TEXT NOT NULL,
-        notes TEXT NOT NULL DEFAULT ''
+        notes TEXT NOT NULL DEFAULT '',
+        hidden INTEGER NOT NULL DEFAULT 0
       )
     ''');
     await db.execute('''
@@ -920,11 +937,12 @@ class DatabaseService {
       amount: entry.amount,
       date: entry.date,
       notes: entry.notes,
+      isHidden: entry.isHidden,
     );
     await db.transaction((txn) async {
       await txn.insert(
         'people_money_entries',
-        {'id': recordId, ...stored.toJson()},
+        {'id': recordId, ..._peopleMoneyEntryToDatabase(stored)},
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
       await _queueSync(txn,
@@ -940,7 +958,7 @@ class DatabaseService {
     await db.transaction((txn) async {
       await txn.update(
         'people_money_entries',
-        entry.toJson(),
+        _peopleMoneyEntryToDatabase(entry),
         where: 'id = ?',
         whereArgs: [entry.id],
       );
@@ -964,6 +982,11 @@ class DatabaseService {
       );
     });
   }
+
+  Map<String, dynamic> _peopleMoneyEntryToDatabase(PeopleMoneyEntry entry) => {
+        ...entry.toJson(),
+        'hidden': entry.isHidden ? 1 : 0,
+      };
 
   Future<List<Map<String, dynamic>>> pendingSyncOperations() async {
     final db = await database;
@@ -1144,7 +1167,7 @@ class DatabaseService {
         final entry = PeopleMoneyEntry.fromJson(record);
         await db.insert(
           table,
-          {'id': localId, ...entry.toJson()},
+          {'id': localId, ..._peopleMoneyEntryToDatabase(entry)},
           conflictAlgorithm: ConflictAlgorithm.replace,
         );
       }

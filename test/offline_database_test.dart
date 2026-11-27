@@ -38,6 +38,7 @@ void main() {
       amount: 25,
       date: DateTime(2026, 11, 27),
       notes: "Saved offline",
+      isHidden: true,
     );
 
     await database.insertPeopleMoneyEntry(entry);
@@ -53,9 +54,58 @@ void main() {
     expect(entries.single.amount, 25);
     expect(entries.single.date, entry.date);
     expect(entries.single.notes, "Saved offline");
+    expect(entries.single.isHidden, isTrue);
     expect(pending, hasLength(1));
     expect(pending.single["entity"], "people-money");
     expect(pending.single["operation"], "upsert");
+    expect(
+      (pending.single["payload"] as Map<String, dynamic>)["hidden"],
+      isTrue,
+    );
+
+    await database.updatePeopleMoneyEntry(
+      entries.single.copyWith(isHidden: false),
+    );
+    expect((await database.getPeopleMoneyEntries()).single.isHidden, isFalse);
+    final pendingUpdate = await database.pendingSyncOperations();
+    expect(
+      (pendingUpdate.single["payload"] as Map<String, dynamic>)["hidden"],
+      isFalse,
+    );
+  });
+
+  test("adds the hidden flag to existing money entries without removing them",
+      () async {
+    final oldDatabase = await openDatabase(
+      path.join(testDirectory.path, "offline-test.db"),
+      version: 6,
+      onCreate: (db, version) async {
+        await db.execute(
+          "CREATE TABLE people_money_entries ("
+          "id TEXT PRIMARY KEY, personName TEXT NOT NULL, "
+          "relationship TEXT NOT NULL, direction TEXT NOT NULL, "
+          "amount REAL NOT NULL, date TEXT NOT NULL, "
+          "notes TEXT NOT NULL DEFAULT '')",
+        );
+        await db.insert("people_money_entries", {
+          "id": "existing-money-entry",
+          "personName": "Keep me",
+          "relationship": "Friend",
+          "direction": "given",
+          "amount": 20.0,
+          "date": "2026-11-27T00:00:00.000",
+          "notes": "",
+        });
+      },
+    );
+    await oldDatabase.close();
+
+    final entries = await database.getPeopleMoneyEntries();
+
+    expect(entries, hasLength(1));
+    expect(entries.single.id, "existing-money-entry");
+    expect(entries.single.personName, "Keep me");
+    expect(entries.single.isHidden, isFalse);
   });
 
   test("updates queued data locally and keeps user deletions queued", () async {

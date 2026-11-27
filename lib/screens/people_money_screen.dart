@@ -19,6 +19,7 @@ class _PeopleMoneyScreenState extends State<PeopleMoneyScreen> {
   final _currency =
       NumberFormat.currency(locale: "en_IN", symbol: "৳", decimalDigits: 2);
   String _selectedMonth = _allMonths;
+  bool _showHiddenEntries = false;
 
   @override
   void initState() {
@@ -45,6 +46,9 @@ class _PeopleMoneyScreenState extends State<PeopleMoneyScreen> {
             .where((entry) =>
                 DateFormat("yyyy-MM").format(entry.date) == selectedMonth)
             .toList();
+    final historyEntries = filteredEntries
+        .where((entry) => entry.isHidden == _showHiddenEntries)
+        .toList();
     final given = filteredEntries
         .where((entry) => entry.direction == "given")
         .fold<double>(0, (sum, entry) => sum + entry.amount);
@@ -179,6 +183,21 @@ class _PeopleMoneyScreenState extends State<PeopleMoneyScreen> {
                                 ?.copyWith(fontWeight: FontWeight.bold),
                           ),
                         ),
+                        TextButton.icon(
+                          onPressed: () => setState(
+                            () => _showHiddenEntries = !_showHiddenEntries,
+                          ),
+                          icon: Icon(
+                            _showHiddenEntries
+                                ? Icons.list_alt_rounded
+                                : Icons.visibility_off_outlined,
+                          ),
+                          label: Text(
+                            _showHiddenEntries
+                                ? "Show active"
+                                : "Hidden (${entries.where((entry) => entry.isHidden).length})",
+                          ),
+                        ),
                         IconButton(
                           tooltip: "Refresh",
                           onPressed: provider.isPeopleMoneyLoading
@@ -194,12 +213,17 @@ class _PeopleMoneyScreenState extends State<PeopleMoneyScreen> {
                 ),
               ),
             ),
-            _buildHistory(context, provider, filteredEntries),
+            _buildHistory(context, provider, historyEntries),
           ],
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showEntrySheet(context, provider),
+        onPressed: () {
+          if (_showHiddenEntries) {
+            setState(() => _showHiddenEntries = false);
+          }
+          _showEntrySheet(context, provider);
+        },
         icon: const Icon(Icons.add_rounded),
         label: const Text("Add Entry"),
       ),
@@ -277,13 +301,20 @@ class _PeopleMoneyScreenState extends State<PeopleMoneyScreen> {
                 Icon(Icons.people_alt_outlined,
                     size: 56, color: Theme.of(context).colorScheme.primary),
                 const SizedBox(height: 12),
-                const Text(
-                  "No entries yet",
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                Text(
+                  _showHiddenEntries
+                      ? "No hidden entries yet"
+                      : "No entries yet",
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
                 ),
                 const SizedBox(height: 6),
-                const Text(
-                  "Add money you have given to or taken from someone.",
+                Text(
+                  _showHiddenEntries
+                      ? "Entries you hide will appear here."
+                      : "Add money you have given to or taken from someone.",
                   textAlign: TextAlign.center,
                 ),
               ],
@@ -294,12 +325,19 @@ class _PeopleMoneyScreenState extends State<PeopleMoneyScreen> {
     }
 
     if (entries.isEmpty) {
-      return const SliverFillRemaining(
+      final hasEntriesInCurrentView = provider.peopleMoneyEntries
+          .any((entry) => entry.isHidden == _showHiddenEntries);
+      final emptyMessage = hasEntriesInCurrentView
+          ? "No entries for this month."
+          : _showHiddenEntries
+              ? "No hidden entries yet."
+              : "No visible entries.";
+      return SliverFillRemaining(
         hasScrollBody: false,
         child: Center(
           child: Padding(
-            padding: EdgeInsets.all(32),
-            child: Text("No entries for this month."),
+            padding: const EdgeInsets.all(32),
+            child: Text(emptyMessage),
           ),
         ),
       );
@@ -353,15 +391,116 @@ class _PeopleMoneyScreenState extends State<PeopleMoneyScreen> {
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
         ),
-        trailing: Text(
-          _currency.format(entry.amount),
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: color,
-          ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              _currency.format(entry.amount),
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+            PopupMenuButton<String>(
+              tooltip: "Entry options",
+              onSelected: (value) {
+                if (value == "hide" || value == "unhide") {
+                  _setEntryHidden(context, entry, value == "hide");
+                } else if (value == "delete") {
+                  _confirmDeleteEntry(context, entry);
+                }
+              },
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  value: entry.isHidden ? "unhide" : "hide",
+                  child: Row(
+                    children: [
+                      Icon(
+                        entry.isHidden
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(entry.isHidden ? "Unhide" : "Hide"),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: "delete",
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete_outline_rounded, color: Colors.red),
+                      SizedBox(width: 8),
+                      Text("Delete"),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
+  }
+
+  Future<void> _setEntryHidden(
+    BuildContext context,
+    PeopleMoneyEntry entry,
+    bool isHidden,
+  ) async {
+    try {
+      await context
+          .read<AppProvider>()
+          .setPeopleMoneyEntryHidden(entry, isHidden);
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(
+              content: Text(
+                "Could not ${isHidden ? "hide" : "unhide"} entry: $error",
+              ),
+            ),
+          );
+      }
+    }
+  }
+
+  Future<void> _confirmDeleteEntry(
+    BuildContext context,
+    PeopleMoneyEntry entry,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text("Delete Entry"),
+        content: Text("Delete the entry for ${entry.personName}?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text("Delete", style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    try {
+      await context.read<AppProvider>().deletePeopleMoneyEntry(entry.id);
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(content: Text("Could not delete entry: $error")),
+          );
+      }
+    }
   }
 
   Future<void> _showEntrySheet(BuildContext context, AppProvider provider,
@@ -532,6 +671,7 @@ class _PeopleMoneyScreenState extends State<PeopleMoneyScreen> {
                                 amount: double.parse(amountController.text),
                                 date: selectedDate,
                                 notes: notesController.text.trim(),
+                                isHidden: initialEntry?.isHidden ?? false,
                               );
                               try {
                                 if (initialEntry == null) {

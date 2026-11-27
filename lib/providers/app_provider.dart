@@ -478,7 +478,8 @@ class AppProvider with ChangeNotifier {
       _summary = results[4] as DashboardSummary;
       _accounts = results[5] as AccountBalance;
       _debts = results[6] as List<DebtItem>;
-      _peopleMoneyEntries = results[7] as List<PeopleMoneyEntry>;
+      _peopleMoneyEntries = results[7] as List<PeopleMoneyEntry>
+        ..sort((a, b) => b.date.compareTo(a.date));
       _peopleMoneyError = null;
 
       await loadCustomOptions();
@@ -547,7 +548,8 @@ class AppProvider with ChangeNotifier {
     _peopleMoneyError = null;
     notifyListeners();
     try {
-      _peopleMoneyEntries = await MongoService.getPeopleMoneyEntries();
+      _peopleMoneyEntries = await MongoService.getPeopleMoneyEntries()
+        ..sort((a, b) => b.date.compareTo(a.date));
     } catch (e) {
       _peopleMoneyError = e.toString();
     } finally {
@@ -563,6 +565,21 @@ class AppProvider with ChangeNotifier {
 
   Future<void> updatePeopleMoneyEntry(PeopleMoneyEntry entry) async {
     await MongoService.updatePeopleMoneyEntry(entry);
+    await fetchPeopleMoneyEntries();
+  }
+
+  Future<void> setPeopleMoneyEntryHidden(
+    PeopleMoneyEntry entry,
+    bool isHidden,
+  ) async {
+    await MongoService.updatePeopleMoneyEntry(
+      entry.copyWith(isHidden: isHidden),
+    );
+    await fetchPeopleMoneyEntries();
+  }
+
+  Future<void> deletePeopleMoneyEntry(String id) async {
+    await MongoService.deletePeopleMoneyEntry(id);
     await fetchPeopleMoneyEntries();
   }
 

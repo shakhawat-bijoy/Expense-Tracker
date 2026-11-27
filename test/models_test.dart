@@ -139,8 +139,17 @@ void main() {
       expect(entry.direction, "given");
       expect(entry.amount, 1250.5);
       expect(entry.date, date);
+      expect(entry.isHidden, isFalse);
       expect(entry.toJson()["amount"], 1250.5);
       expect(entry.toJson()["direction"], "given");
+      expect(entry.toJson()["hidden"], isFalse);
+
+      final hiddenEntry = entry.copyWith(isHidden: true);
+      expect(hiddenEntry.isHidden, isTrue);
+      expect(
+        PeopleMoneyEntry.fromJson(hiddenEntry.toJson()).isHidden,
+        isTrue,
+      );
     });
   });
 }
