@@ -196,7 +196,7 @@ class _PeopleMoneyScreenState extends State<PeopleMoneyScreen> {
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAddEntrySheet(context, provider),
+        onPressed: () => _showEntrySheet(context, provider),
         icon: const Icon(Icons.add_rounded),
         label: const Text("Add Entry"),
       ),
@@ -322,12 +322,26 @@ class _PeopleMoneyScreenState extends State<PeopleMoneyScreen> {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
-            trailing: Text(
-              _currency.format(entry.amount),
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  _currency.format(entry.amount),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
+                ),
+                IconButton(
+                  tooltip: "Edit entry",
+                  onPressed: () => _showEntrySheet(
+                    context,
+                    context.read<AppProvider>(),
+                    initialEntry: entry,
+                  ),
+                  icon: const Icon(Icons.edit_outlined),
+                ),
+              ],
             ),
           ),
         );
@@ -335,17 +349,21 @@ class _PeopleMoneyScreenState extends State<PeopleMoneyScreen> {
     );
   }
 
-  Future<void> _showAddEntrySheet(
-    BuildContext context,
-    AppProvider provider,
-  ) async {
-    final nameController = TextEditingController();
-    final amountController = TextEditingController();
-    final notesController = TextEditingController();
+  Future<void> _showEntrySheet(BuildContext context, AppProvider provider,
+      {PeopleMoneyEntry? initialEntry}) async {
+    final nameController =
+        TextEditingController(text: initialEntry?.personName ?? "");
+    final amountController =
+        TextEditingController(text: initialEntry?.amount.toString() ?? "");
+    final notesController =
+        TextEditingController(text: initialEntry?.notes ?? "");
     final formKey = GlobalKey<FormState>();
-    var selectedDate = DateTime.now();
-    var direction = "given";
-    var relationship = "Family";
+    var selectedDate = initialEntry?.date ?? DateTime.now();
+    var direction = initialEntry?.direction ?? "given";
+    var relationship = initialEntry?.relationship ?? "Family";
+    final relationships = _relationships.contains(relationship)
+        ? _relationships
+        : [..._relationships, relationship];
     var saving = false;
 
     await showModalBottomSheet<void>(
@@ -372,9 +390,14 @@ class _PeopleMoneyScreenState extends State<PeopleMoneyScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    "Add Money Entry",
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  Text(
+                    initialEntry == null
+                        ? "Add Money Entry"
+                        : "Edit Money Entry",
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
@@ -406,7 +429,7 @@ class _PeopleMoneyScreenState extends State<PeopleMoneyScreen> {
                       labelText: "Relationship",
                       prefixIcon: Icon(Icons.people_outline_rounded),
                     ),
-                    items: _relationships
+                    items: relationships
                         .map((value) => DropdownMenuItem(
                               value: value,
                               child: Text(value),
@@ -486,8 +509,8 @@ class _PeopleMoneyScreenState extends State<PeopleMoneyScreen> {
                           : () async {
                               if (!formKey.currentState!.validate()) return;
                               setSheetState(() => saving = true);
-                              final entry = PeopleMoneyEntry(
-                                id: "",
+                              final updatedEntry = PeopleMoneyEntry(
+                                id: initialEntry?.id ?? "",
                                 personName: nameController.text.trim(),
                                 relationship: relationship,
                                 direction: direction,
@@ -496,7 +519,13 @@ class _PeopleMoneyScreenState extends State<PeopleMoneyScreen> {
                                 notes: notesController.text.trim(),
                               );
                               try {
-                                await provider.addPeopleMoneyEntry(entry);
+                                if (initialEntry == null) {
+                                  await provider
+                                      .addPeopleMoneyEntry(updatedEntry);
+                                } else {
+                                  await provider
+                                      .updatePeopleMoneyEntry(updatedEntry);
+                                }
                                 if (sheetContext.mounted) {
                                   Navigator.pop(sheetContext);
                                 }
@@ -514,7 +543,13 @@ class _PeopleMoneyScreenState extends State<PeopleMoneyScreen> {
                                 }
                               }
                             },
-                      child: Text(saving ? "Saving..." : "Save Entry"),
+                      child: Text(
+                        saving
+                            ? "Saving..."
+                            : initialEntry == null
+                                ? "Save Entry"
+                                : "Update Entry",
+                      ),
                     ),
                   ),
                 ],

@@ -45,9 +45,6 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  bool _hideBalances = false;
-  bool _hideRecentShiftBalances = false;
-
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<AppProvider>();
@@ -125,7 +122,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         children: [
                           Expanded(
                             child: Text(
-                              _hideBalances
+                              provider.hideBalances
                                   ? "••••••"
                                   : currency.format(summary.netBalance),
                               style: const TextStyle(
@@ -137,14 +134,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             ),
                           ),
                           IconButton(
-                            onPressed: () => setState(
-                              () => _hideBalances = !_hideBalances,
-                            ),
-                            tooltip: _hideBalances
+                            onPressed: provider.toggleHideBalances,
+                            tooltip: provider.hideBalances
                                 ? "Show balances"
                                 : "Hide balances",
                             icon: Icon(
-                              _hideBalances
+                              provider.hideBalances
                                   ? Icons.visibility_off_rounded
                                   : Icons.visibility_rounded,
                               color: Colors.white,
@@ -167,7 +162,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               icon: Icons.arrow_upward_rounded,
                               iconColor: const Color(0xFF34D399),
                               label: "Earned",
-                              value: _hideBalances
+                              value: provider.hideBalances
                                   ? "••••••"
                                   : currency.format(summary.netEarnings),
                             ),
@@ -201,7 +196,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   pocket: provider.pocketBalance,
                   bank: provider.bankBalance,
                   total: provider.totalLiquidFunds,
-                  hideBalances: _hideBalances,
+                  hideBalances: provider.hideBalances,
                   currency: currency,
                   isDark: isDark,
                   onEdit: () => _showAdjustAccountsModal(context, provider),
@@ -254,7 +249,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     Expanded(
                       child: _StatusCard(
                         title: "Pending Shifts",
-                        amount: _hideBalances
+                        amount: provider.hideBalances
                             ? "••••••"
                             : currency.format(summary.pendingEarnings),
                         icon: Icons.hourglass_top_rounded,
@@ -436,15 +431,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                       ),
                       IconButton(
-                        tooltip: _hideRecentShiftBalances
+                        tooltip: provider.hideRecentShiftBalances
                             ? "Show recent shift balances"
                             : "Hide recent shift balances",
-                        onPressed: () => setState(
-                          () => _hideRecentShiftBalances =
-                              !_hideRecentShiftBalances,
-                        ),
+                        onPressed: provider.toggleHideRecentShiftBalances,
                         icon: Icon(
-                          _hideRecentShiftBalances
+                          provider.hideRecentShiftBalances
                               ? Icons.visibility_off_rounded
                               : Icons.visibility_rounded,
                         ),
@@ -473,7 +465,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           shift: s,
                           currency: currency,
                           isDark: isDark,
-                          hideBalance: _hideRecentShiftBalances,
+                          hideBalance: provider.hideRecentShiftBalances,
                           onTap: () => _showEditShiftModal(context, s),
                         )),
                   ],

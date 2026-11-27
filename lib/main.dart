@@ -27,12 +27,14 @@ void main() async {
   ));
   await MongoService.loadBaseUrl();
   await MongoService.connect();
+  final appProvider = AppProvider();
+  await appProvider.loadBalanceVisibility();
 
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(
-            create: (_) => AppProvider()
+            create: (_) => appProvider
               ..loadTheme()
               ..fetchAllData()),
       ],

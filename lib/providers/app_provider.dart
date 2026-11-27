@@ -22,6 +22,8 @@ class AppProvider with ChangeNotifier {
   DashboardSummary _summary = DashboardSummary.initial();
 
   bool _isLoading = false;
+  bool _hideBalances = false;
+  bool _hideRecentShiftBalances = false;
   ThemeMode _themeMode = ThemeMode.light;
   String _searchQuery = "";
   String _selectedCategory = "All";
@@ -134,6 +136,8 @@ class AppProvider with ChangeNotifier {
   AccountBalance get accounts => _accounts;
   DashboardSummary get summary => _summary;
   bool get isLoading => _isLoading;
+  bool get hideBalances => _hideBalances;
+  bool get hideRecentShiftBalances => _hideRecentShiftBalances;
   ThemeMode get themeMode => _themeMode;
   bool get isDarkMode => _themeMode == ThemeMode.dark;
   String get searchQuery => _searchQuery;
@@ -387,6 +391,28 @@ class AppProvider with ChangeNotifier {
   }
 
   // ─── Theme ──────────────────────────────────────────────────────────────
+  Future<void> loadBalanceVisibility() async {
+    final prefs = await SharedPreferences.getInstance();
+    _hideBalances = prefs.getBool("hideBalances") ?? false;
+    _hideRecentShiftBalances =
+        prefs.getBool("hideRecentShiftBalances") ?? false;
+    notifyListeners();
+  }
+
+  Future<void> toggleHideBalances() async {
+    _hideBalances = !_hideBalances;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool("hideBalances", _hideBalances);
+  }
+
+  Future<void> toggleHideRecentShiftBalances() async {
+    _hideRecentShiftBalances = !_hideRecentShiftBalances;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool("hideRecentShiftBalances", _hideRecentShiftBalances);
+  }
+
   Future<void> loadTheme() async {
     final prefs = await SharedPreferences.getInstance();
     final isDark = prefs.getBool("isDarkMode") ?? false;
@@ -532,6 +558,11 @@ class AppProvider with ChangeNotifier {
 
   Future<void> addPeopleMoneyEntry(PeopleMoneyEntry entry) async {
     await MongoService.insertPeopleMoneyEntry(entry);
+    await fetchPeopleMoneyEntries();
+  }
+
+  Future<void> updatePeopleMoneyEntry(PeopleMoneyEntry entry) async {
+    await MongoService.updatePeopleMoneyEntry(entry);
     await fetchPeopleMoneyEntries();
   }
 
