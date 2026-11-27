@@ -441,7 +441,6 @@ class PeopleMoneyEntry {
   final double amount;
   final DateTime date;
   final String notes;
-  final bool isHidden;
 
   PeopleMoneyEntry({
     required this.id,
@@ -451,7 +450,6 @@ class PeopleMoneyEntry {
     required this.amount,
     required this.date,
     this.notes = "",
-    this.isHidden = false,
   });
 
   factory PeopleMoneyEntry.fromJson(Map<String, dynamic> json) =>
@@ -464,7 +462,6 @@ class PeopleMoneyEntry {
         date:
             DateTime.tryParse(json["date"]?.toString() ?? "") ?? DateTime.now(),
         notes: json["notes"] ?? "",
-        isHidden: json["hidden"] == true || json["hidden"] == 1,
       );
 
   Map<String, dynamic> toJson() => {
@@ -474,19 +471,7 @@ class PeopleMoneyEntry {
         "amount": amount,
         "date": date.toIso8601String(),
         "notes": notes,
-        "hidden": isHidden,
       };
-
-  PeopleMoneyEntry copyWith({bool? isHidden}) => PeopleMoneyEntry(
-        id: id,
-        personName: personName,
-        relationship: relationship,
-        direction: direction,
-        amount: amount,
-        date: date,
-        notes: notes,
-        isHidden: isHidden ?? this.isHidden,
-      );
 }
 
 class CustomOption {

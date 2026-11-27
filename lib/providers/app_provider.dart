@@ -568,16 +568,6 @@ class AppProvider with ChangeNotifier {
     await fetchPeopleMoneyEntries();
   }
 
-  Future<void> setPeopleMoneyEntryHidden(
-    PeopleMoneyEntry entry,
-    bool isHidden,
-  ) async {
-    await MongoService.updatePeopleMoneyEntry(
-      entry.copyWith(isHidden: isHidden),
-    );
-    await fetchPeopleMoneyEntries();
-  }
-
   Future<void> deletePeopleMoneyEntry(String id) async {
     await MongoService.deletePeopleMoneyEntry(id);
     await fetchPeopleMoneyEntries();
