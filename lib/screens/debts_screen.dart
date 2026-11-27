@@ -5,7 +5,6 @@ import "package:provider/provider.dart";
 import "../models/models.dart";
 import "../providers/app_provider.dart";
 import "../widgets/addable_dropdown.dart";
-import "../widgets/month_navigation_bar.dart";
 
 class DebtsScreen extends StatefulWidget {
   const DebtsScreen({super.key});
@@ -32,8 +31,6 @@ class _DebtsScreenState extends State<DebtsScreen> {
     return Scaffold(
       body: Column(
         children: [
-          const MonthNavigationBar(),
-
           // Payoff Summary Hero Card
           _buildPayoffSummaryCard(context, provider),
 
@@ -217,6 +214,7 @@ class _DebtsScreenState extends State<DebtsScreen> {
   ) {
     final cs = Theme.of(context).colorScheme;
     final isSettled = debt.isSettled;
+    final monthDate = DateTime.tryParse("${debt.month}-01") ?? debt.dueDate;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -252,6 +250,16 @@ class _DebtsScreenState extends State<DebtsScreen> {
                         if (debt.personName.isNotEmpty)
                           Text(
                             "${debt.direction == "owed_to_me" ? "From" : "To"}: ${debt.personName} • ${debt.category}",
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isDark
+                                  ? Colors.grey.shade400
+                                  : Colors.grey.shade600,
+                            ),
+                          ),
+                        if (monthDate != null)
+                          Text(
+                            "Month: ${DateFormat("MMM yyyy").format(monthDate)}",
                             style: TextStyle(
                               fontSize: 12,
                               color: isDark

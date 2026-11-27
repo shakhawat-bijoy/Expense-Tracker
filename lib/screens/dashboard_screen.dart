@@ -7,7 +7,7 @@ import "../models/models.dart";
 import "../providers/app_provider.dart";
 import "../widgets/addable_dropdown.dart";
 import "../widgets/month_navigation_bar.dart";
-import "debts_screen.dart";
+import "people_debts_screen.dart";
 
 TimeOfDay _dashboardTimeFromMinutes(int? minutes, TimeOfDay fallback) {
   if (minutes == null) return fallback;
@@ -46,6 +46,7 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   bool _hideBalances = false;
+  bool _hideRecentShiftBalances = false;
 
   @override
   Widget build(BuildContext context) {
@@ -166,7 +167,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               icon: Icons.arrow_upward_rounded,
                               iconColor: const Color(0xFF34D399),
                               label: "Earned",
-                              value: currency.format(summary.netEarnings),
+                              value: _hideBalances
+                                  ? "••••••"
+                                  : currency.format(summary.netEarnings),
                             ),
                           ),
                           Container(
@@ -233,7 +236,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const DebtsScreen()),
+                      MaterialPageRoute(
+                        builder: (_) => const PeopleDebtsScreen(),
+                      ),
                     );
                   },
                 )
@@ -249,7 +254,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     Expanded(
                       child: _StatusCard(
                         title: "Pending Shifts",
-                        amount: currency.format(summary.pendingEarnings),
+                        amount: _hideBalances
+                            ? "••••••"
+                            : currency.format(summary.pendingEarnings),
                         icon: Icons.hourglass_top_rounded,
                         color: const Color(0xFFF59E0B),
                         isDark: isDark,
@@ -319,7 +326,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                                builder: (_) => const DebtsScreen()),
+                              builder: (_) => const PeopleDebtsScreen(),
+                            ),
                           );
                         },
                       ),
@@ -420,7 +428,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ],
 
                   // ─── Recent Month Transactions ────────────────────────
-                  const _SectionHeader(title: "Recent Entries (Tap to Edit)"),
+                  Row(
+                    children: [
+                      const Expanded(
+                        child: _SectionHeader(
+                          title: "Recent Entries (Tap to Edit)",
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: _hideRecentShiftBalances
+                            ? "Show recent shift balances"
+                            : "Hide recent shift balances",
+                        onPressed: () => setState(
+                          () => _hideRecentShiftBalances =
+                              !_hideRecentShiftBalances,
+                        ),
+                        icon: Icon(
+                          _hideRecentShiftBalances
+                              ? Icons.visibility_off_rounded
+                              : Icons.visibility_rounded,
+                        ),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 12),
                   if (provider.expenses.isEmpty && provider.shifts.isEmpty)
                     Center(
@@ -443,6 +473,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           shift: s,
                           currency: currency,
                           isDark: isDark,
+                          hideBalance: _hideRecentShiftBalances,
                           onTap: () => _showEditShiftModal(context, s),
                         )),
                   ],
@@ -1991,12 +2022,14 @@ class _ShiftTile extends StatelessWidget {
   final EarningShift shift;
   final NumberFormat currency;
   final bool isDark;
+  final bool hideBalance;
   final VoidCallback onTap;
 
   const _ShiftTile({
     required this.shift,
     required this.currency,
     required this.isDark,
+    required this.hideBalance,
     required this.onTap,
   });
 
@@ -2039,7 +2072,7 @@ class _ShiftTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  currency.format(shift.netAmount),
+                  hideBalance ? "••••••" : currency.format(shift.netAmount),
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 15,

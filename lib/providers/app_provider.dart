@@ -11,7 +11,6 @@ class AppProvider with ChangeNotifier {
   List<EarningShift> _shifts = [];
   List<FixedBill> _fixedBills = [];
   List<DebtItem> _debts = [];
-  List<DebtItem> _allDebts = [];
   List<PeopleMoneyEntry> _peopleMoneyEntries = [];
   bool _isPeopleMoneyLoading = false;
   String? _peopleMoneyError;
@@ -147,10 +146,10 @@ class AppProvider with ChangeNotifier {
   double get bankBalance => _accounts.bank;
   double get totalLiquidFunds => _accounts.total;
 
-  double get totalDebtOwed => _allDebts
+  double get totalDebtOwed => _debts
       .where((d) => d.direction == "owed")
       .fold(0.0, (acc, d) => acc + d.amount);
-  double get totalDebtPaid => _allDebts
+  double get totalDebtPaid => _debts
       .where((d) => d.direction == "owed")
       .fold(0.0, (acc, d) => acc + d.paidAmount);
   double get remainingDebtOwed =>
@@ -440,7 +439,6 @@ class AppProvider with ChangeNotifier {
         MongoService.getBudget(month: _selectedMonth),
         MongoService.getSummary(month: _selectedMonth),
         MongoService.getAccounts(),
-        MongoService.getDebts(month: _selectedMonth),
         MongoService.getDebts(),
         MongoService.getPeopleMoneyEntries(),
       ]);
@@ -454,8 +452,7 @@ class AppProvider with ChangeNotifier {
       _summary = results[4] as DashboardSummary;
       _accounts = results[5] as AccountBalance;
       _debts = results[6] as List<DebtItem>;
-      _allDebts = results[7] as List<DebtItem>;
-      _peopleMoneyEntries = results[8] as List<PeopleMoneyEntry>;
+      _peopleMoneyEntries = results[7] as List<PeopleMoneyEntry>;
       _peopleMoneyError = null;
 
       await loadCustomOptions();

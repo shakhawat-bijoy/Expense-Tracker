@@ -11,8 +11,7 @@ import "screens/earnings_screen.dart";
 import "screens/expenses_screen.dart";
 import "screens/statistics_screen.dart";
 import "screens/bills_screen.dart";
-import "screens/debts_screen.dart";
-import "screens/people_money_screen.dart";
+import "screens/people_debts_screen.dart";
 import "services/mongodb_service.dart";
 
 void main() async {
@@ -193,20 +192,18 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
     "Dashboard",
     "Shift Earnings",
     "Daily Expenses",
-    "Debts & Payoffs",
+    "People & Money",
     "Recurring Bills",
     "Statistics",
-    "Money with People",
   ];
 
   final List<Widget> _screens = const [
     DashboardScreen(),
     EarningsScreen(),
     ExpensesScreen(),
-    DebtsScreen(),
+    PeopleDebtsScreen(),
     BillsScreen(),
     StatisticsScreen(),
-    PeopleMoneyScreen(),
   ];
 
   @override
@@ -364,10 +361,9 @@ class _MobileBottomNavigation extends StatelessWidget {
     (Icons.dashboard_outlined, Icons.dashboard_rounded, "Home"),
     (Icons.work_outline_rounded, Icons.work_rounded, "Shifts"),
     (Icons.receipt_long_outlined, Icons.receipt_long_rounded, "Expenses"),
-    (Icons.credit_card_off_outlined, Icons.credit_card_off_rounded, "Debts"),
+    (Icons.people_alt_outlined, Icons.people_alt_rounded, "People & Money"),
     (Icons.calendar_today_outlined, Icons.calendar_today_rounded, "Bills"),
     (Icons.analytics_outlined, Icons.analytics_rounded, "Stats"),
-    (Icons.people_alt_outlined, Icons.people_alt_rounded, "People"),
   ];
 
   @override
