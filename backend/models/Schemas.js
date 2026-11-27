@@ -110,6 +110,20 @@ DebtSchema.pre("save", function(next) {
   next();
 });
 
+// ─── Money Given To / Taken From People ────────────────────────────────────
+const PeopleMoneyEntrySchema = new mongoose.Schema({
+  personName: { type: String, required: true, trim: true },
+  relationship: {
+    type: String,
+    enum: ["Family", "Sister", "Friend", "Other"],
+    required: true
+  },
+  direction: { type: String, enum: ["given", "taken"], required: true },
+  amount: { type: Number, required: true, min: 0.01 },
+  date: { type: Date, required: true, default: Date.now },
+  notes: { type: String, default: "" }
+}, { timestamps: true });
+
 // ─── Account Balances (Pocket / Cash and Bank Account) ───────────────────
 const AccountBalanceSchema = new mongoose.Schema({
   pocket: { type: Number, default: 0 },
@@ -130,6 +144,7 @@ module.exports = {
   FixedBill: mongoose.model("FixedBill", FixedBillSchema, "fixedbills"),
   Budget: mongoose.model("Budget", BudgetSchema, "budgets"),
   Debt: mongoose.model("Debt", DebtSchema, "debts"),
+  PeopleMoneyEntry: mongoose.model("PeopleMoneyEntry", PeopleMoneyEntrySchema, "peoplemoneyentries"),
   AccountBalance: mongoose.model("AccountBalance", AccountBalanceSchema, "accountbalances"),
   CustomOption: mongoose.model("CustomOption", CustomOptionSchema, "customoptions"),
   getMonthString

@@ -431,6 +431,47 @@ class DebtItem {
       );
 }
 
+class PeopleMoneyEntry {
+  final String id;
+  final String personName;
+  final String relationship;
+  final String direction;
+  final double amount;
+  final DateTime date;
+  final String notes;
+
+  PeopleMoneyEntry({
+    required this.id,
+    required this.personName,
+    required this.relationship,
+    required this.direction,
+    required this.amount,
+    required this.date,
+    this.notes = "",
+  });
+
+  factory PeopleMoneyEntry.fromJson(Map<String, dynamic> json) =>
+      PeopleMoneyEntry(
+        id: json["_id"] ?? json["id"] ?? "",
+        personName: json["personName"] ?? "",
+        relationship: json["relationship"] ?? "Other",
+        direction: json["direction"] ?? "given",
+        amount: (json["amount"] as num?)?.toDouble() ?? 0.0,
+        date: DateTime.tryParse(json["date"]?.toString() ?? "") ??
+            DateTime.now(),
+        notes: json["notes"] ?? "",
+      );
+
+  Map<String, dynamic> toJson() => {
+        "personName": personName,
+        "relationship": relationship,
+        "direction": direction,
+        "amount": amount,
+        "date": date.toIso8601String(),
+        "notes": notes,
+      };
+}
+
 class CustomOption {
   final String id;
   final String type;

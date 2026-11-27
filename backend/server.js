@@ -9,6 +9,7 @@ const {
   FixedBill, 
   Budget, 
   Debt, 
+  PeopleMoneyEntry,
   AccountBalance, 
   CustomOption, 
   getMonthString 
@@ -213,6 +214,26 @@ app.delete("/api/debts/:id", async (req, res) => {
     res.json({ message: "Debt deleted" });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── Money Given To / Taken From People ──────────────────────────────────
+app.get("/api/people-money", async (req, res) => {
+  try {
+    const entries = await PeopleMoneyEntry.find().sort({ date: -1, createdAt: -1 });
+    res.json(entries);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/people-money", async (req, res) => {
+  try {
+    const entry = new PeopleMoneyEntry(req.body);
+    await entry.save();
+    res.status(201).json(entry);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
 });
 

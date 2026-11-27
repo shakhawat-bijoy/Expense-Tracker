@@ -37,8 +37,15 @@ String _dashboardFormat12(BuildContext context, TimeOfDay time) =>
     MaterialLocalizations.of(context)
         .formatTimeOfDay(time, alwaysUse24HourFormat: false);
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
+
+  @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  bool _hideBalances = false;
 
   @override
   Widget build(BuildContext context) {
@@ -113,14 +120,43 @@ class DashboardScreen extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 6),
-                      Text(
-                        currency.format(summary.netBalance),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 34,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: -1,
-                        ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              _hideBalances
+                                  ? "••••••"
+                                  : currency.format(summary.netBalance),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 34,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: -1,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => setState(
+                              () => _hideBalances = !_hideBalances,
+                            ),
+                            tooltip: _hideBalances
+                                ? "Show balances"
+                                : "Hide balances",
+                            icon: Icon(
+                              _hideBalances
+                                  ? Icons.visibility_off_rounded
+                                  : Icons.visibility_rounded,
+                              color: Colors.white,
+                              size: 22,
+                            ),
+                            visualDensity: VisualDensity.compact,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(
+                              minWidth: 40,
+                              minHeight: 40,
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 18),
                       Row(
@@ -162,6 +198,7 @@ class DashboardScreen extends StatelessWidget {
                   pocket: provider.pocketBalance,
                   bank: provider.bankBalance,
                   total: provider.totalLiquidFunds,
+                  hideBalances: _hideBalances,
                   currency: currency,
                   isDark: isDark,
                   onEdit: () => _showAdjustAccountsModal(context, provider),
@@ -1227,6 +1264,7 @@ class _AccountsBalanceCard extends StatelessWidget {
   final double pocket;
   final double bank;
   final double total;
+  final bool hideBalances;
   final NumberFormat currency;
   final bool isDark;
   final VoidCallback onEdit;
@@ -1235,6 +1273,7 @@ class _AccountsBalanceCard extends StatelessWidget {
     required this.pocket,
     required this.bank,
     required this.total,
+    required this.hideBalances,
     required this.currency,
     required this.isDark,
     required this.onEdit,
@@ -1350,7 +1389,7 @@ class _AccountsBalanceCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        currency.format(pocket),
+                        hideBalances ? "••••••" : currency.format(pocket),
                         style: const TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.bold,
@@ -1396,7 +1435,7 @@ class _AccountsBalanceCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        currency.format(bank),
+                        hideBalances ? "••••••" : currency.format(bank),
                         style: const TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.bold,
@@ -1421,7 +1460,7 @@ class _AccountsBalanceCard extends StatelessWidget {
                 ),
               ),
               Text(
-                currency.format(total),
+                hideBalances ? "••••••" : currency.format(total),
                 style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,

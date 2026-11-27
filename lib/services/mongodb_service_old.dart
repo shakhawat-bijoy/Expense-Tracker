@@ -193,6 +193,32 @@ class MongoService {
     }
   }
 
+  // ─── Money With People ────────────────────────────────────────────────────
+
+  static Future<List<PeopleMoneyEntry>> getPeopleMoneyEntries() async {
+    final res = await http.get(Uri.parse("$baseUrl/people-money"));
+    if (res.statusCode != 200) {
+      throw Exception("Could not load money with people (${res.statusCode}).");
+    }
+
+    final List<dynamic> list = jsonDecode(res.body);
+    return list
+        .map((json) => PeopleMoneyEntry.fromJson(
+            Map<String, dynamic>.from(json as Map)))
+        .toList();
+  }
+
+  static Future<void> insertPeopleMoneyEntry(PeopleMoneyEntry entry) async {
+    final res = await http.post(
+      Uri.parse("$baseUrl/people-money"),
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode(entry.toJson()),
+    );
+    if (res.statusCode != 201) {
+      throw Exception("Could not save this entry (${res.statusCode}).");
+    }
+  }
+
   // ─── Custom Dynamic Dropdown Options ─────────────────────────────────────
 
   static Future<List<CustomOption>> getCustomOptions(String type) async {

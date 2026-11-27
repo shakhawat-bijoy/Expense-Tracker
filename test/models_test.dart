@@ -120,5 +120,27 @@ void main() {
       expect(debt.paidPercent, 40.0);
       expect(debt.isSettled, false);
     });
+
+    test("PeopleMoneyEntry parses and serializes taka transactions", () {
+      final date = DateTime(2026, 11, 27);
+      final entry = PeopleMoneyEntry.fromJson({
+        "_id": "entry-1",
+        "personName": "Ayesha",
+        "relationship": "Sister",
+        "direction": "given",
+        "amount": 1250.5,
+        "date": date.toIso8601String(),
+        "notes": "Family support",
+      });
+
+      expect(entry.id, "entry-1");
+      expect(entry.personName, "Ayesha");
+      expect(entry.relationship, "Sister");
+      expect(entry.direction, "given");
+      expect(entry.amount, 1250.5);
+      expect(entry.date, date);
+      expect(entry.toJson()["amount"], 1250.5);
+      expect(entry.toJson()["direction"], "given");
+    });
   });
 }

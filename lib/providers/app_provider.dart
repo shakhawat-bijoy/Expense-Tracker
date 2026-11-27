@@ -10,6 +10,9 @@ class AppProvider with ChangeNotifier {
   List<FixedBill> _fixedBills = [];
   List<DebtItem> _debts = [];
   List<DebtItem> _allDebts = [];
+  List<PeopleMoneyEntry> _peopleMoneyEntries = [];
+  bool _isPeopleMoneyLoading = false;
+  String? _peopleMoneyError;
   MonthlyBudget _budget = MonthlyBudget(month: "", amount: 0.0);
   AccountBalance _accounts = AccountBalance.initial();
   DashboardSummary _summary = DashboardSummary.initial();
@@ -83,6 +86,9 @@ class AppProvider with ChangeNotifier {
   List<EarningShift> get shifts => _shifts;
   List<FixedBill> get fixedBills => _fixedBills;
   List<DebtItem> get debts => _debts;
+  List<PeopleMoneyEntry> get peopleMoneyEntries => _peopleMoneyEntries;
+  bool get isPeopleMoneyLoading => _isPeopleMoneyLoading;
+  String? get peopleMoneyError => _peopleMoneyError;
   MonthlyBudget get budget => _budget;
   AccountBalance get accounts => _accounts;
   DashboardSummary get summary => _summary;
@@ -466,6 +472,25 @@ class AppProvider with ChangeNotifier {
   Future<void> deleteDebt(String id) async {
     await MongoService.deleteDebt(id);
     await fetchAllData();
+  }
+
+  Future<void> fetchPeopleMoneyEntries() async {
+    _isPeopleMoneyLoading = true;
+    _peopleMoneyError = null;
+    notifyListeners();
+    try {
+      _peopleMoneyEntries = await MongoService.getPeopleMoneyEntries();
+    } catch (e) {
+      _peopleMoneyError = e.toString();
+    } finally {
+      _isPeopleMoneyLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> addPeopleMoneyEntry(PeopleMoneyEntry entry) async {
+    await MongoService.insertPeopleMoneyEntry(entry);
+    await fetchPeopleMoneyEntries();
   }
 
   // ─── Expenses (CRUD) ────────────────────────────────────────────────────
