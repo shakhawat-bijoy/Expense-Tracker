@@ -29,43 +29,41 @@ class _DebtsScreenState extends State<DebtsScreen> {
     }).toList();
 
     return Scaffold(
-      body: Column(
-        children: [
-          // Payoff Summary Hero Card
-          _buildPayoffSummaryCard(context, provider),
-
-          // Filter Chips
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            child: Row(
-              children: [
-                _buildFilterChip("All", debts.length),
-                const SizedBox(width: 8),
-                _buildFilterChip(
-                    "Pending", debts.where((d) => !d.isSettled).length),
-                const SizedBox(width: 8),
-                _buildFilterChip(
-                    "Settled", debts.where((d) => d.isSettled).length),
-              ],
-            ),
-          ),
-
-          // Debts List or Empty State
-          Expanded(
-            child: filteredDebts.isEmpty
-                ? _buildEmptyState(context, provider)
-                : ListView.builder(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    itemCount: filteredDebts.length,
-                    itemBuilder: (context, index) {
-                      final debt = filteredDebts[index];
-                      return _buildDebtCard(
-                          context, debt, provider, isDark, index);
-                    },
-                  ),
-          ),
-        ],
+      body: ListView.builder(
+        padding: const EdgeInsets.only(bottom: 96),
+        itemCount: filteredDebts.length + 2 + (filteredDebts.isEmpty ? 1 : 0),
+        itemBuilder: (context, index) {
+          if (index == 0) {
+            return _buildPayoffSummaryCard(context, provider);
+          }
+          if (index == 1) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              child: Row(
+                children: [
+                  _buildFilterChip("All", debts.length),
+                  const SizedBox(width: 8),
+                  _buildFilterChip(
+                      "Pending", debts.where((d) => !d.isSettled).length),
+                  const SizedBox(width: 8),
+                  _buildFilterChip(
+                      "Settled", debts.where((d) => d.isSettled).length),
+                ],
+              ),
+            );
+          }
+          if (filteredDebts.isEmpty) {
+            return _buildEmptyState(context, provider);
+          }
+          final debtIndex = index - 2;
+          return _buildDebtCard(
+            context,
+            filteredDebts[debtIndex],
+            provider,
+            isDark,
+            debtIndex,
+          );
+        },
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showAddOrEditDebtModal(context),

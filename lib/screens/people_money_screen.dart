@@ -54,147 +54,147 @@ class _PeopleMoneyScreenState extends State<PeopleMoneyScreen> {
 
     return Scaffold(
       body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "Money with People",
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    "Track money you give to or take from people in Bangladeshi Taka.",
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  DropdownButtonFormField<String>(
-                    initialValue: selectedMonth,
-                    decoration: const InputDecoration(
-                      labelText: "Month",
-                      prefixIcon: Icon(Icons.calendar_month_rounded),
-                      isDense: true,
-                    ),
-                    items: [
-                      const DropdownMenuItem(
-                        value: _allMonths,
-                        child: Text("All months"),
-                      ),
-                      for (final month in monthOptions)
-                        DropdownMenuItem(
-                          value: month,
-                          child: Text(
-                            DateFormat("MMMM yyyy")
-                                .format(DateTime.parse("$month-01")),
+        child: CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Money with People",
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
                           ),
-                        ),
-                    ],
-                    onChanged: (value) {
-                      if (value != null) {
-                        setState(() => _selectedMonth = value);
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 14),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _TotalCard(
-                          label: "Given",
-                          amount: _currency.format(given),
-                          icon: Icons.call_made_rounded,
-                          color: const Color(0xFF10B981),
-                        ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      "Track money you give to or take from people in Bangladeshi Taka.",
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _TotalCard(
-                          label: "Taken",
-                          amount: _currency.format(taken),
-                          icon: Icons.call_received_rounded,
-                          color: const Color(0xFF6366F1),
-                        ),
+                    ),
+                    const SizedBox(height: 14),
+                    DropdownButtonFormField<String>(
+                      initialValue: selectedMonth,
+                      decoration: const InputDecoration(
+                        labelText: "Month",
+                        prefixIcon: Icon(Icons.calendar_month_rounded),
+                        isDense: true,
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  Card(
-                    margin: EdgeInsets.zero,
-                    child: ExpansionTile(
-                      leading: const Icon(Icons.pie_chart_outline_rounded),
-                      title: const Text(
-                        "Totals by relationship",
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
+                      items: [
+                        const DropdownMenuItem(
+                          value: _allMonths,
+                          child: Text("All months"),
                         ),
-                      ),
-                      children: [
-                        for (final relationship in _relationships)
-                          ListTile(
-                            dense: true,
-                            title: Text(relationship),
-                            trailing: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Text(
-                                  "Given: ${_currency.format(_relationshipTotal(filteredEntries, relationship, "given"))}",
-                                  style: const TextStyle(
-                                    color: Color(0xFF10B981),
-                                    fontSize: 12,
-                                  ),
-                                ),
-                                Text(
-                                  "Taken: ${_currency.format(_relationshipTotal(filteredEntries, relationship, "taken"))}",
-                                  style: const TextStyle(
-                                    color: Color(0xFF6366F1),
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
+                        for (final month in monthOptions)
+                          DropdownMenuItem(
+                            value: month,
+                            child: Text(
+                              DateFormat("MMMM yyyy")
+                                  .format(DateTime.parse("$month-01")),
                             ),
                           ),
                       ],
+                      onChanged: (value) {
+                        if (value != null) {
+                          setState(() => _selectedMonth = value);
+                        }
+                      },
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          "History",
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleSmall
-                              ?.copyWith(fontWeight: FontWeight.bold),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _TotalCard(
+                            label: "Given",
+                            amount: _currency.format(given),
+                            icon: Icons.call_made_rounded,
+                            color: const Color(0xFF10B981),
+                          ),
                         ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _TotalCard(
+                            label: "Taken",
+                            amount: _currency.format(taken),
+                            icon: Icons.call_received_rounded,
+                            color: const Color(0xFF6366F1),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    Card(
+                      margin: EdgeInsets.zero,
+                      child: ExpansionTile(
+                        leading: const Icon(Icons.pie_chart_outline_rounded),
+                        title: const Text(
+                          "Totals by relationship",
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        children: [
+                          for (final relationship in _relationships)
+                            ListTile(
+                              dense: true,
+                              title: Text(relationship),
+                              trailing: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    "Given: ${_currency.format(_relationshipTotal(filteredEntries, relationship, "given"))}",
+                                    style: const TextStyle(
+                                      color: Color(0xFF10B981),
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  Text(
+                                    "Taken: ${_currency.format(_relationshipTotal(filteredEntries, relationship, "taken"))}",
+                                    style: const TextStyle(
+                                      color: Color(0xFF6366F1),
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
                       ),
-                      IconButton(
-                        tooltip: "Refresh",
-                        onPressed: provider.isPeopleMoneyLoading
-                            ? null
-                            : () => unawaited(
-                                  provider.fetchPeopleMoneyEntries(),
-                                ),
-                        icon: const Icon(Icons.refresh_rounded),
-                      ),
-                    ],
-                  ),
-                ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            "History",
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleSmall
+                                ?.copyWith(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: "Refresh",
+                          onPressed: provider.isPeopleMoneyLoading
+                              ? null
+                              : () => unawaited(
+                                    provider.fetchPeopleMoneyEntries(),
+                                  ),
+                          icon: const Icon(Icons.refresh_rounded),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
-            Expanded(
-              child: _buildHistory(context, provider, filteredEntries),
-            ),
+            _buildHistory(context, provider, filteredEntries),
           ],
         ),
       ),
@@ -223,125 +223,144 @@ class _PeopleMoneyScreenState extends State<PeopleMoneyScreen> {
     List<PeopleMoneyEntry> entries,
   ) {
     if (provider.isPeopleMoneyLoading && provider.peopleMoneyEntries.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return const SliverFillRemaining(
+        hasScrollBody: false,
+        child: Center(child: CircularProgressIndicator()),
+      );
     }
 
     if (provider.peopleMoneyError != null &&
         provider.peopleMoneyEntries.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.cloud_off_rounded, size: 40),
-              const SizedBox(height: 12),
-              const Text("Could not load money history."),
-              const SizedBox(height: 8),
-              Text(
-                provider.peopleMoneyError!,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  fontSize: 12,
+      return SliverFillRemaining(
+        hasScrollBody: false,
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.cloud_off_rounded, size: 40),
+                const SizedBox(height: 12),
+                const Text("Could not load money history."),
+                const SizedBox(height: 8),
+                Text(
+                  provider.peopleMoneyError!,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontSize: 12,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                onPressed: () => unawaited(provider.fetchPeopleMoneyEntries()),
-                icon: const Icon(Icons.refresh_rounded),
-                label: const Text("Try again"),
-              ),
-            ],
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: () =>
+                      unawaited(provider.fetchPeopleMoneyEntries()),
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: const Text("Try again"),
+                ),
+              ],
+            ),
           ),
         ),
       );
     }
 
     if (provider.peopleMoneyEntries.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.people_alt_outlined,
-                  size: 56, color: Theme.of(context).colorScheme.primary),
-              const SizedBox(height: 12),
-              const Text(
-                "No entries yet",
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                "Add money you have given to or taken from someone.",
-                textAlign: TextAlign.center,
-              ),
-            ],
+      return SliverFillRemaining(
+        hasScrollBody: false,
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.people_alt_outlined,
+                    size: 56, color: Theme.of(context).colorScheme.primary),
+                const SizedBox(height: 12),
+                const Text(
+                  "No entries yet",
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  "Add money you have given to or taken from someone.",
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
           ),
         ),
       );
     }
 
     if (entries.isEmpty) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(32),
-          child: Text("No entries for this month."),
+      return const SliverFillRemaining(
+        hasScrollBody: false,
+        child: Center(
+          child: Padding(
+            padding: EdgeInsets.all(32),
+            child: Text("No entries for this month."),
+          ),
         ),
       );
     }
 
-    return ListView.separated(
+    return SliverPadding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
-      itemCount: entries.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 8),
-      itemBuilder: (context, index) {
-        final entry = entries[index];
-        final isGiven = entry.direction == "given";
-        final color =
-            isGiven ? const Color(0xFF10B981) : const Color(0xFF6366F1);
-        final person = entry.personName.isEmpty
-            ? entry.relationship
-            : "${entry.personName} · ${entry.relationship}";
+      sliver: SliverList(
+        delegate: SliverChildBuilderDelegate(
+          (context, index) {
+            if (index.isOdd) return const SizedBox(height: 8);
+            return _buildEntryCard(context, entries[index ~/ 2]);
+          },
+          childCount: entries.length * 2 - 1,
+        ),
+      ),
+    );
+  }
 
-        return Card(
-          margin: EdgeInsets.zero,
-          child: ListTile(
-            onTap: () => _showEntrySheet(
-              context,
-              context.read<AppProvider>(),
-              initialEntry: entry,
-            ),
-            leading: CircleAvatar(
-              backgroundColor: color.withValues(alpha: 0.12),
-              child: Icon(
-                isGiven ? Icons.call_made_rounded : Icons.call_received_rounded,
-                color: color,
-              ),
-            ),
-            title: Text(
-              "${isGiven ? "Given to" : "Taken from"} $person",
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-            ),
-            subtitle: Text(
-              "${DateFormat("dd MMM yyyy").format(entry.date)}"
-              "${entry.notes.isEmpty ? "" : " · ${entry.notes}"}",
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            trailing: Text(
-              _currency.format(entry.amount),
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
-            ),
+  Widget _buildEntryCard(BuildContext context, PeopleMoneyEntry entry) {
+    final isGiven = entry.direction == "given";
+    final color = isGiven ? const Color(0xFF10B981) : const Color(0xFF6366F1);
+    final person = entry.personName.isEmpty
+        ? entry.relationship
+        : "${entry.personName} · ${entry.relationship}";
+
+    return Card(
+      margin: EdgeInsets.zero,
+      child: ListTile(
+        onTap: () => _showEntrySheet(
+          context,
+          context.read<AppProvider>(),
+          initialEntry: entry,
+        ),
+        leading: CircleAvatar(
+          backgroundColor: color.withValues(alpha: 0.12),
+          child: Icon(
+            isGiven ? Icons.call_made_rounded : Icons.call_received_rounded,
+            color: color,
           ),
-        );
-      },
+        ),
+        title: Text(
+          "${isGiven ? "Given to" : "Taken from"} $person",
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+        ),
+        subtitle: Text(
+          "${DateFormat("dd MMM yyyy").format(entry.date)}"
+          "${entry.notes.isEmpty ? "" : " · ${entry.notes}"}",
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        trailing: Text(
+          _currency.format(entry.amount),
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+      ),
     );
   }
 
